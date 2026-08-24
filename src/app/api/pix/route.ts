@@ -1,91 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
+import { generatePixBrCode } from "@/lib/pix";
+import QRCode from "qrcode";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { amount, customer, metadata } = body;
+    const amountCents = Number(body.amount) || 10440; // R$ 104,40
+    const amountReais = amountCents / 100;
 
-    if (!amount || amount < 100) {
-      return NextResponse.json(
-        { success: false, error: "Valor inválido" },
-        { status: 400 }
-      );
-    }
+    // Sua chave PIX (CNPJ)
+    const brCode = generatePixBrCode({
+      key: "66372751000147",
+      name: "MUNDO ATLETA", // ajuste se o nome no banco for outro
+      city: "SAO PAULO", // ajuste para a cidade da sua empresa
+      amount: amountReais,
+      txid: `PED${Date.now().toString().slice(-8)}`,
+    });
 
-    const apiKey = process.env.ABACATEPAY_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Chave da AbacatePay não configurada. Defina ABACATEPAY_API_KEY no .env",
-        },
-        { status: 500 }
-      );
-    }
-
-    const payload = {
-      method: "PIX",
-      data: {
-        amount: Number(amount),
-        expiresIn: 1800, // 30 minutos
-        description: "Aparelho Abdominal AB Tomic - Mundo Atleta",
-        customer: customer
-          ? {
-              name: customer.name,
-              email: customer.email,
-              taxId: customer.taxId,
-              cellphone: customer.cellphone,
-            }
-          : undefined,
-        metadata: metadata || {},
-      },
-    };
-
-    const response = await fetch(
-      "https://api.abacatepay.com/v2/transparents/create",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok || result.error || result.success === false) {
-  console.error("AbacatePay error completo:", JSON.stringify(result, null, 2));
-  return NextResponse.json(
-    {
-      success: false,
-      error:
-        result.error ||
-        result.message ||
-        (typeof result === "object" ? JSON.stringify(result) : "Erro ao criar cobrança PIX"),
-      details: result,
-    },
-    { status: response.status || 400 }
-  );
-}
+    // Gera a imagem do QR Code em base64
+    const brCodeBase64 = await QRCode.toDataURL(brCode, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 300,
+    });
 
     return NextResponse.json({
       success: true,
       data: {
-        id: result.data.id,
-        amount: result.data.amount,
-        status: result.data.status,
-        brCode: result.data.brCode,
-        brCodeBase64: result.data.brCodeBase64,
-        expiresAt: result.data.expiresAt,
+        id: `pix_static_${Date.now()}`,
+        amount: amountCents,
+        status: "PENDING",
+        brCode,
+        brCodeBase64,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       },
     });
   } catch (err) {
-    console.error("API /pix error:", err);
+    console.error("Erro ao gerar PIX:", err);
     return NextResponse.json(
-      { success: false, error: "Erro interno do servidor" },
+      { success: false, error: "Erro ao gerar QR Code PIX" },
       { status: 500 }
     );
   }
