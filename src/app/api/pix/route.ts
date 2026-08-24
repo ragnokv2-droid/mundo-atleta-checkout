@@ -56,16 +56,20 @@ export async function POST(req: NextRequest) {
 
     const result = await response.json();
 
-    if (!response.ok || result.error) {
-      console.error("AbacatePay error:", result);
-      return NextResponse.json(
-        {
-          success: false,
-          error: result.error || "Erro ao criar cobrança PIX na AbacatePay",
-        },
-        { status: response.status || 500 }
-      );
-    }
+    if (!response.ok || result.error || result.success === false) {
+  console.error("AbacatePay error completo:", JSON.stringify(result, null, 2));
+  return NextResponse.json(
+    {
+      success: false,
+      error:
+        result.error ||
+        result.message ||
+        (typeof result === "object" ? JSON.stringify(result) : "Erro ao criar cobrança PIX"),
+      details: result,
+    },
+    { status: response.status || 400 }
+  );
+}
 
     return NextResponse.json({
       success: true,
