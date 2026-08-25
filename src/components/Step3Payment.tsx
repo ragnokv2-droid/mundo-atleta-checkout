@@ -7,6 +7,7 @@ import { PRODUCT, formatBRL } from "@/lib/product";
 
 interface Props {
   formData: CheckoutFormData;
+  totalAmount: number;   // ← adicione esta linha
   onBack: () => void;
 }
 
