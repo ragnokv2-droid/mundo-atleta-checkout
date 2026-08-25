@@ -26,9 +26,9 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: PRODUCT.pixPrice,
-          customer: {
-            name: formData.name,
+  amount: totalAmount,
+  customer: {
+    name: formData.name,
             email: formData.email,
             taxId: formData.taxId.replace(/\D/g, ""),
             cellphone: formData.cellphone.replace(/\D/g, ""),
