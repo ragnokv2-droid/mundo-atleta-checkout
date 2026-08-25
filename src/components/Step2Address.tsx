@@ -18,8 +18,11 @@ function maskCep(value: string) {
 
 export default function Step2Address({ data, onChange, onNext, onBack }: Props) {
   const [loadingCep, setLoadingCep] = useState(false);
+  const [cepFound, setCepFound] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
 
   const isValid =
+    cepFound &&
     data.zipCode.replace(/\D/g, "").length === 8 &&
     data.street.trim().length > 2 &&
     data.number.trim().length > 0 &&
@@ -29,20 +32,24 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
 
   async function handleSearchCep() {
     setLoadingCep(true);
+    setCepError(null);
+
     const result = await fetchAddressByCep(data.zipCode);
     setLoadingCep(false);
 
     if (result) {
       onChange({
         ...data,
-        street: result.logradouro || data.street,
-        neighborhood: result.bairro || data.neighborhood,
-        city: result.localidade || data.city,
-        state: result.uf || data.state,
-        complement: result.complemento || data.complement,
+        street: result.logradouro || "",
+        neighborhood: result.bairro || "",
+        city: result.localidade || "",
+        state: result.uf || "",
+        complement: result.complemento || data.complement || "",
       });
+      setCepFound(true);
     } else {
-      alert("CEP não encontrado. Preencha o endereço manualmente.");
+      setCepFound(false);
+      setCepError("CEP não encontrado. Verifique e tente novamente.");
     }
   }
 
@@ -58,6 +65,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
       </div>
 
       <div className="space-y-4">
+        {/* CEP - sempre visível */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             CEP <span className="text-red-500">*</span>
@@ -68,7 +76,15 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
               inputMode="numeric"
               placeholder="00000-000"
               value={data.zipCode}
-              onChange={(e) => onChange({ ...data, zipCode: maskCep(e.target.value) })}
+              onChange={(e) => {
+                const masked = maskCep(e.target.value);
+                onChange({ ...data, zipCode: masked });
+                // Se o usuário mudar o CEP, esconde os outros campos de novo
+                if (masked.replace(/\D/g, "").length < 8) {
+                  setCepFound(false);
+                  setCepError(null);
+                }
+              }}
               className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
             />
             <button
@@ -80,91 +96,101 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
               {loadingCep ? "..." : "Buscar"}
             </button>
           </div>
+          {cepError && (
+            <p className="mt-1.5 text-xs text-red-600">{cepError}</p>
+          )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Rua <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={data.street}
-            onChange={(e) => onChange({ ...data, street: e.target.value })}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
-          />
-        </div>
+        {/* Demais campos - só aparecem depois do CEP */}
+        {cepFound && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rua <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={data.street}
+                onChange={(e) => onChange({ ...data, street: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+              />
+            </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Número <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={data.number}
-              onChange={(e) => onChange({ ...data, number: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Complemento
-            </label>
-            <input
-              type="text"
-              placeholder="Opcional"
-              value={data.complement || ""}
-              onChange={(e) => onChange({ ...data, complement: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
-            />
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Número <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Nº"
+                  value={data.number}
+                  onChange={(e) => onChange({ ...data, number: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Complemento
+                </label>
+                <input
+                  type="text"
+                  placeholder="Opcional"
+                  value={data.complement || ""}
+                  onChange={(e) => onChange({ ...data, complement: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                />
+              </div>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Bairro <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={data.neighborhood}
-            onChange={(e) => onChange({ ...data, neighborhood: e.target.value })}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Bairro <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={data.neighborhood}
+                onChange={(e) => onChange({ ...data, neighborhood: e.target.value })}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+              />
+            </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cidade <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={data.city}
-              onChange={(e) => onChange({ ...data, city: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Estado <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={data.state}
-              onChange={(e) => onChange({ ...data, state: e.target.value })}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900 bg-white"
-            >
-              <option value="">UF</option>
-              {[
-                "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
-                "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
-              ].map((uf) => (
-                <option key={uf} value={uf}>
-                  {uf}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cidade <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={data.city}
+                  onChange={(e) => onChange({ ...data, city: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Estado <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={data.state}
+                  onChange={(e) => onChange({ ...data, state: e.target.value })}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                >
+                  <option value="">UF</option>
+                  {[
+                    "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+                    "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+                  ].map((uf) => (
+                    <option key={uf} value={uf}>
+                      {uf}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mt-6 flex gap-3">
