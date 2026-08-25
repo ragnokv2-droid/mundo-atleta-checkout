@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import MetaPixel from "@/components/MetaPixel";
 
 export const metadata: Metadata = {
   title: "Checkout | Mundo Atleta",
@@ -15,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="bg-gray-50 min-h-screen antialiased">
+        <MetaPixel />
         {children}
         <Analytics />
       </body>
