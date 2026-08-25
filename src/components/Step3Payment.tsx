@@ -82,7 +82,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
         <div className="text-center py-6">
           <p className="text-sm text-gray-600 mb-4">
             Clique abaixo para gerar o QR Code PIX no valor de{" "}
-            <strong className="text-green-600">{formatBRL(PRODUCT.pixPrice)}</strong>
+            <strong className="text-green-600">{formatBRL(totalAmount)}</strong>
           </p>
           <button
             onClick={generatePix}
@@ -147,7 +147,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
           <div className="bg-gray-50 rounded-xl p-4 text-center">
             <p className="text-sm text-gray-600">Total a pagar</p>
             <p className="text-2xl font-bold text-green-600">
-              {formatBRL(PRODUCT.pixPrice)}
+              {formatBRL(totalAmount)}
             </p>
           </div>
 
