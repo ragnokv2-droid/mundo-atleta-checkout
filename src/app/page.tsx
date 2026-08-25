@@ -53,6 +53,14 @@ export default function CheckoutPage() {
     });
   }, []);
 
+  function saveLead(payload: Record<string, string | number>) {
+    fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto shadow-xl">
       <Header />
@@ -68,7 +76,19 @@ export default function CheckoutPage() {
         <Step1Identification
           data={customer}
           onChange={setCustomer}
-          onNext={() => setStep(2)}
+          onNext={() => {
+            saveLead({
+              nome: customer.name,
+              email: customer.email,
+              telefone: customer.cellphone,
+              endereco: "",
+              frete: "",
+              valor: "",
+              status: "abandonado_dados",
+              etapa: 1,
+            });
+            setStep(2);
+          }}
         />
       )}
 
@@ -84,6 +104,18 @@ export default function CheckoutPage() {
               currency: "BRL",
               value: totalAmount / 100,
             });
+
+            saveLead({
+              nome: customer.name,
+              email: customer.email,
+              telefone: customer.cellphone,
+              endereco: `${address.street}, ${address.number} - ${address.neighborhood}, ${address.city}/${address.state} - CEP ${address.zipCode}`,
+              frete: shipping || "",
+              valor: (totalAmount / 100).toFixed(2),
+              status: "abandonado_frete",
+              etapa: 2,
+            });
+
             setStep(3);
           }}
           onBack={() => setStep(1)}
