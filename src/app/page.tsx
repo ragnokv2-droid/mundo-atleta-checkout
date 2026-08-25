@@ -1,4 +1,6 @@
 "use client";
+import { trackMetaEvent } from "@/components/MetaPixel";
+import { useEffect } from "react";
 
 import { useState } from "react";
 import Header from "@/components/Header";
