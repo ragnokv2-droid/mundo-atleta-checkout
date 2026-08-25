@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { AddressData } from "@/types/checkout";
+import { AddressData, ShippingMethod, SHIPPING_OPTIONS } from "@/types/checkout";
 import { fetchAddressByCep } from "@/lib/viaCep";
+import { formatBRL } from "@/lib/product";
 
 interface Props {
   data: AddressData;
+  shipping: ShippingMethod | null;
   onChange: (data: AddressData) => void;
+  onShippingChange: (method: ShippingMethod) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -16,13 +19,20 @@ function maskCep(value: string) {
   return v.replace(/(\d{5})(\d)/, "$1-$2");
 }
 
-export default function Step2Address({ data, onChange, onNext, onBack }: Props) {
+export default function Step2Address({
+  data,
+  shipping,
+  onChange,
+  onShippingChange,
+  onNext,
+  onBack,
+}: Props) {
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepFound, setCepFound] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
   const lastCep = useRef("");
 
-  const isValid =
+  const addressComplete =
     cepFound &&
     data.zipCode.replace(/\D/g, "").length === 8 &&
     data.street.trim().length > 2 &&
@@ -31,7 +41,8 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
     data.city.trim().length > 1 &&
     data.state.length === 2;
 
-  // Busca automática quando o CEP fica completo
+  const isValid = addressComplete && shipping !== null;
+
   useEffect(() => {
     const clean = data.zipCode.replace(/\D/g, "");
 
@@ -41,7 +52,6 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
       return;
     }
 
-    // Evita buscar o mesmo CEP de novo
     if (clean === lastCep.current) return;
     lastCep.current = clean;
 
@@ -85,7 +95,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
       </div>
 
       <div className="space-y-4">
-        {/* Só o CEP no início */}
+        {/* CEP */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             CEP <span className="text-red-500">*</span>
@@ -96,10 +106,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
               inputMode="numeric"
               placeholder="00000-000"
               value={data.zipCode}
-              onChange={(e) => {
-                const masked = maskCep(e.target.value);
-                onChange({ ...data, zipCode: masked });
-              }}
+              onChange={(e) => onChange({ ...data, zipCode: maskCep(e.target.value) })}
               className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
             />
             {loadingCep && (
@@ -108,12 +115,10 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
               </span>
             )}
           </div>
-          {cepError && (
-            <p className="mt-1.5 text-xs text-red-600">{cepError}</p>
-          )}
+          {cepError && <p className="mt-1.5 text-xs text-red-600">{cepError}</p>}
         </div>
 
-        {/* Demais campos só depois do CEP */}
+        {/* Campos de endereço */}
         {cepFound && (
           <>
             <div>
@@ -124,7 +129,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
                 type="text"
                 value={data.street}
                 onChange={(e) => onChange({ ...data, street: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30"
               />
             </div>
 
@@ -138,7 +143,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
                   placeholder="Nº"
                   value={data.number}
                   onChange={(e) => onChange({ ...data, number: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30"
                   autoFocus
                 />
               </div>
@@ -151,7 +156,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
                   placeholder="Opcional"
                   value={data.complement || ""}
                   onChange={(e) => onChange({ ...data, complement: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30"
                 />
               </div>
             </div>
@@ -164,7 +169,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
                 type="text"
                 value={data.neighborhood}
                 onChange={(e) => onChange({ ...data, neighborhood: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30"
               />
             </div>
 
@@ -177,7 +182,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
                   type="text"
                   value={data.city}
                   onChange={(e) => onChange({ ...data, city: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30"
                 />
               </div>
               <div>
@@ -187,21 +192,70 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
                 <select
                   value={data.state}
                   onChange={(e) => onChange({ ...data, state: e.target.value })}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-900/30"
                 >
                   <option value="">UF</option>
-                  {[
-                    "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
-                    "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
-                  ].map((uf) => (
-                    <option key={uf} value={uf}>
-                      {uf}
-                    </option>
+                  {["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"].map((uf) => (
+                    <option key={uf} value={uf}>{uf}</option>
                   ))}
                 </select>
               </div>
             </div>
           </>
+        )}
+
+        {/* Opções de frete - só depois do endereço completo */}
+        {addressComplete && (
+          <div className="pt-2">
+            <p className="text-sm font-semibold text-gray-900 mb-3">
+              Escolha a forma de entrega:
+            </p>
+            <div className="space-y-2">
+              {SHIPPING_OPTIONS.map((option) => {
+                const selected = shipping === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onShippingChange(option.id)}
+                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-colors ${
+                      selected
+                        ? "border-blue-900 bg-blue-50"
+                        : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                        selected ? "border-blue-900" : "border-gray-300"
+                      }`}
+                    >
+                      {selected && (
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-900" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {option.name}{" "}
+                        <span className="font-normal text-gray-500">
+                          – {option.days}
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {option.description}
+                      </p>
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900 flex-shrink-0">
+                      {option.price === 0 ? (
+                        <span className="text-green-600">Grátis</span>
+                      ) : (
+                        formatBRL(option.price)
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
