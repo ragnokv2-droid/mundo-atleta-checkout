@@ -11,7 +11,7 @@ interface Props {
   onBack: () => void;
 }
 
-export default function Step3Payment({ formData, onBack }: Props) {
+export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
   const [pix, setPix] = useState<PixResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
