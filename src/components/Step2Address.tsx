@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AddressData } from "@/types/checkout";
 import { fetchAddressByCep } from "@/lib/viaCep";
 
@@ -20,6 +20,7 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepFound, setCepFound] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
+  const lastCep = useRef("");
 
   const isValid =
     cepFound &&
@@ -30,28 +31,47 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
     data.city.trim().length > 1 &&
     data.state.length === 2;
 
-  async function handleSearchCep() {
-    setLoadingCep(true);
-    setCepError(null);
+  // Busca automática quando o CEP fica completo
+  useEffect(() => {
+    const clean = data.zipCode.replace(/\D/g, "");
 
-    const result = await fetchAddressByCep(data.zipCode);
-    setLoadingCep(false);
-
-    if (result) {
-      onChange({
-        ...data,
-        street: result.logradouro || "",
-        neighborhood: result.bairro || "",
-        city: result.localidade || "",
-        state: result.uf || "",
-        complement: result.complemento || data.complement || "",
-      });
-      setCepFound(true);
-    } else {
+    if (clean.length !== 8) {
       setCepFound(false);
-      setCepError("CEP não encontrado. Verifique e tente novamente.");
+      setCepError(null);
+      return;
     }
-  }
+
+    // Evita buscar o mesmo CEP de novo
+    if (clean === lastCep.current) return;
+    lastCep.current = clean;
+
+    async function search() {
+      setLoadingCep(true);
+      setCepError(null);
+
+      const result = await fetchAddressByCep(clean);
+      setLoadingCep(false);
+
+      if (result) {
+        onChange({
+          ...data,
+          zipCode: maskCep(clean),
+          street: result.logradouro || "",
+          neighborhood: result.bairro || "",
+          city: result.localidade || "",
+          state: result.uf || "",
+          complement: result.complemento || data.complement || "",
+        });
+        setCepFound(true);
+      } else {
+        setCepFound(false);
+        setCepError("CEP não encontrado. Verifique e tente novamente.");
+      }
+    }
+
+    search();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.zipCode]);
 
   return (
     <div className="px-4 pb-8">
@@ -65,12 +85,12 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
       </div>
 
       <div className="space-y-4">
-        {/* CEP - sempre visível */}
+        {/* Só o CEP no início */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             CEP <span className="text-red-500">*</span>
           </label>
-          <div className="flex gap-2">
+          <div className="relative">
             <input
               type="text"
               inputMode="numeric"
@@ -79,29 +99,21 @@ export default function Step2Address({ data, onChange, onNext, onBack }: Props) 
               onChange={(e) => {
                 const masked = maskCep(e.target.value);
                 onChange({ ...data, zipCode: masked });
-                // Se o usuário mudar o CEP, esconde os outros campos de novo
-                if (masked.replace(/\D/g, "").length < 8) {
-                  setCepFound(false);
-                  setCepError(null);
-                }
               }}
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-900/30 focus:border-blue-900"
             />
-            <button
-              type="button"
-              onClick={handleSearchCep}
-              disabled={loadingCep || data.zipCode.replace(/\D/g, "").length !== 8}
-              className="px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg disabled:bg-gray-300"
-            >
-              {loadingCep ? "..." : "Buscar"}
-            </button>
+            {loadingCep && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                Buscando...
+              </span>
+            )}
           </div>
           {cepError && (
             <p className="mt-1.5 text-xs text-red-600">{cepError}</p>
           )}
         </div>
 
-        {/* Demais campos - só aparecem depois do CEP */}
+        {/* Demais campos só depois do CEP */}
         {cepFound && (
           <>
             <div>
