@@ -25,19 +25,19 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
       const res = await fetch("/api/pix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+   body: JSON.stringify({
   amount: totalAmount,
   customer: {
     name: formData.name,
-            email: formData.email,
-            taxId: formData.taxId.replace(/\D/g, ""),
-            cellphone: formData.cellphone.replace(/\D/g, ""),
-          },
-          metadata: {
-            product: PRODUCT.name,
-            address: `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city}/${formData.state} - CEP ${formData.zipCode}`,
-          },
-        }),
+    email: formData.email,
+    taxId: formData.taxId.replace(/\D/g, ""),
+    cellphone: formData.cellphone.replace(/\D/g, ""),
+  },
+  metadata: {
+    product: PRODUCT.name,
+    address: `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city}/${formData.state} - CEP ${formData.zipCode}`,
+  },
+}),
       });
 
       const json = await res.json();
