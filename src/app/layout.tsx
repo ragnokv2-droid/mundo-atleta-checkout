@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import MetaPixel from "@/components/MetaPixel";
 
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body className="bg-gray-50 min-h-screen antialiased">
         <MetaPixel />
         {children}
+        <Analytics />
       </body>
     </html>
   );
