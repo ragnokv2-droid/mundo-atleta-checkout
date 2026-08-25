@@ -45,7 +45,6 @@ export default function CheckoutPage() {
 
   const totalAmount = PRODUCT.pixPrice + shippingPrice;
 
-  // Evento ao abrir o checkout
   useEffect(() => {
     trackMetaEvent("InitiateCheckout", {
       content_name: PRODUCT.name,
@@ -62,3 +61,46 @@ export default function CheckoutPage() {
       <ProductSummary
         showOriginal={step < 3}
         shippingPrice={shippingPrice}
+        totalAmount={totalAmount}
+      />
+
+      {step === 1 && (
+        <Step1Identification
+          data={customer}
+          onChange={setCustomer}
+          onNext={() => setStep(2)}
+        />
+      )}
+
+      {step === 2 && (
+        <Step2Address
+          data={address}
+          shipping={shipping}
+          onChange={setAddress}
+          onShippingChange={setShipping}
+          onNext={() => {
+            trackMetaEvent("AddPaymentInfo", {
+              content_name: PRODUCT.name,
+              currency: "BRL",
+              value: totalAmount / 100,
+            });
+            setStep(3);
+          }}
+          onBack={() => setStep(1)}
+        />
+      )}
+
+      {step === 3 && (
+        <Step3Payment
+          formData={{
+            ...customer,
+            ...address,
+            shipping: shipping || undefined,
+          }}
+          totalAmount={totalAmount}
+          onBack={() => setStep(2)}
+        />
+      )}
+    </div>
+  );
+}
