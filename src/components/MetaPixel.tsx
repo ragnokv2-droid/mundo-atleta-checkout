@@ -2,7 +2,7 @@
 
 import Script from "next/script";
 
-const PIXEL_ID = "SEU_PIXEL_ID_AQUI"; // ← coloque seu ID do Meta Pixel
+const PIXEL_ID = "1049853073957255"; // ← coloque seu ID do Meta Pixel
 
 export default function MetaPixel() {
   return (
@@ -17,7 +17,7 @@ export default function MetaPixel() {
           t.src=v;s=b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${PIXEL_ID}');
+          fbq('init', '${1049853073957255}');
           fbq('track', 'PageView');
         `}
       </Script>
@@ -26,7 +26,7 @@ export default function MetaPixel() {
           height="1"
           width="1"
           style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`}
+          src={`https://www.facebook.com/tr?id=${1049853073957255}&ev=PageView&noscript=1`}
           alt=""
         />
       </noscript>
