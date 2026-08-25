@@ -49,7 +49,6 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
       setPix(json.data);
 
-      // Evento de compra no Meta (quando gera o PIX)
       trackMetaEvent("Purchase", {
         content_name: PRODUCT.name,
         content_ids: ["ab-tomic"],
@@ -72,7 +71,6 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Tela depois de gerar o PIX
   if (pix) {
     return (
       <div className="px-4 pb-10">
@@ -146,6 +144,86 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     );
   }
 
-  // Tela inicial de pagamento
   return (
-    <div className="px-4 
+    <div className="px-4 pb-10">
+      <div className="mb-5">
+        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-blue-900 text-white text-xs flex items-center justify-center">
+            3
+          </span>
+          Pagamento
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Para finalizar seu pedido escolha uma forma de pagamento
+        </p>
+      </div>
+
+      <div className="bg-white rounded-xl border-2 border-blue-900 shadow-sm overflow-hidden">
+        <div className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-blue-900 flex items-center justify-center flex-shrink-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-900" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-gray-900">Pix (5% OFF)</span>
+                <span className="text-[10px] font-bold bg-green-500 text-white px-1.5 py-0.5 rounded">
+                  5% DE DESCONTO
+                </span>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                Ao confirmar, um código Pix será gerado para você realizar o
+                pagamento pelo aplicativo do seu banco.
+              </p>
+
+              <p className="text-sm mt-3">
+                <span className="text-gray-600">Valor no pix: </span>
+                <span className="font-bold text-gray-900">
+                  {formatBRL(totalAmount)}
+                </span>{" "}
+                <span className="text-gray-400 line-through text-xs">
+                  {formatBRL(PRODUCT.originalPrice)}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 pb-4">
+          <button
+            onClick={generatePix}
+            disabled={loading}
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Gerando PIX...
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                Pagar
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <p className="mt-3 text-sm text-red-600 bg-red-50 rounded-lg p-3 text-center">
+          {error}
+        </p>
+      )}
+
+      <button
+        onClick={onBack}
+        className="mt-4 w-full text-sm text-gray-500 underline"
+      >
+        Voltar
+      </button>
+    </div>
+  );
+}
