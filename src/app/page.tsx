@@ -1,8 +1,6 @@
 "use client";
-import { trackMetaEvent } from "@/components/MetaPixel";
-import { useEffect } from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import PromoBanner from "@/components/PromoBanner";
 import StepIndicator from "@/components/StepIndicator";
@@ -10,8 +8,15 @@ import ProductSummary from "@/components/ProductSummary";
 import Step1Identification from "@/components/Step1Identification";
 import Step2Address from "@/components/Step2Address";
 import Step3Payment from "@/components/Step3Payment";
-import { Step, CustomerData, AddressData, ShippingMethod, SHIPPING_OPTIONS } from "@/types/checkout";
+import {
+  Step,
+  CustomerData,
+  AddressData,
+  ShippingMethod,
+  SHIPPING_OPTIONS,
+} from "@/types/checkout";
 import { PRODUCT } from "@/lib/product";
+import { trackMetaEvent } from "@/components/MetaPixel";
 
 export default function CheckoutPage() {
   const [step, setStep] = useState<Step>(1);
@@ -40,6 +45,15 @@ export default function CheckoutPage() {
 
   const totalAmount = PRODUCT.pixPrice + shippingPrice;
 
+  // Evento ao abrir o checkout
+  useEffect(() => {
+    trackMetaEvent("InitiateCheckout", {
+      content_name: PRODUCT.name,
+      currency: "BRL",
+      value: PRODUCT.pixPrice / 100,
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto shadow-xl">
       <Header />
@@ -48,35 +62,3 @@ export default function CheckoutPage() {
       <ProductSummary
         showOriginal={step < 3}
         shippingPrice={shippingPrice}
-        totalAmount={totalAmount}
-      />
-
-      {step === 1 && (
-        <Step1Identification
-          data={customer}
-          onChange={setCustomer}
-          onNext={() => setStep(2)}
-        />
-      )}
-
-      {step === 2 && (
-        <Step2Address
-          data={address}
-          shipping={shipping}
-          onChange={setAddress}
-          onShippingChange={setShipping}
-          onNext={() => setStep(3)}
-          onBack={() => setStep(1)}
-        />
-      )}
-
-      {step === 3 && (
-        <Step3Payment
-          formData={{ ...customer, ...address, shipping: shipping || undefined }}
-          totalAmount={totalAmount}
-          onBack={() => setStep(2)}
-        />
-      )}
-    </div>
-  );
-}
