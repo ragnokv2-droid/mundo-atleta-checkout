@@ -49,13 +49,29 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
       setPix(json.data);
 
-     trackMetaEvent("Purchase", {
-  content_name: PRODUCT.name,
-  content_ids: "ab-tomic",
-  content_type: "product",
-  currency: "BRL",
-  value: totalAmount / 100,
-});
+      trackMetaEvent("Purchase", {
+        content_name: PRODUCT.name,
+        content_ids: "ab-tomic",
+        content_type: "product",
+        currency: "BRL",
+        value: totalAmount / 100,
+      });
+
+      // Carrinho: gerou PIX (aguardando pagamento)
+      fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: formData.name,
+          email: formData.email,
+          telefone: formData.cellphone,
+          endereco: `${formData.street}, ${formData.number} - ${formData.neighborhood}, ${formData.city}/${formData.state} - CEP ${formData.zipCode}`,
+          frete: formData.shipping || "",
+          valor: (totalAmount / 100).toFixed(2),
+          status: "aguardando_pix",
+          etapa: 3,
+        }),
+      }).catch(() => {});
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Erro inesperado";
       setError(message);
