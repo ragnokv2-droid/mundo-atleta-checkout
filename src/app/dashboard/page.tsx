@@ -59,6 +59,9 @@ function formatBRL(v: number) {
  * Carrinho abandonado:
  * - Nome do cliente
  * - Link do checkout
+ *
+ * IMPORTANTE:
+ * - Nenhum emoji é utilizado nas mensagens.
  */
 
 function waLink(
@@ -78,13 +81,13 @@ function waLink(
     ? n
     : `55${n}`;
 
-  // Usa apenas o primeiro nome para deixar
-  // a mensagem mais natural.
+  // Usa apenas o primeiro nome
   const nomeCliente =
     String(nome || "")
       .trim()
       .split(" ")[0] || "cliente";
 
+  // Mantém o valor conforme aparece no dashboard
   const valorPedido = valor
     ? `R$ ${valor}`
     : "R$ 0,00";
@@ -104,17 +107,17 @@ function waLink(
     statusNormalizado ===
     "aguardando_pix"
   ) {
-    mensagem = `Olá *${nomeCliente}*! 😊
+    mensagem = `Olá *${nomeCliente}*!
 
 *Seu pedido do Aparelho Abdominal AB Tomic foi reservado com sucesso!*
 
-🛍️ Resumo do pedido:
-* *Produto: Aparelho Abdominal AB Tomic*
+*Resumo do pedido:*
+* Produto: Aparelho Abdominal AB Tomic
 * Valor total: *${valorPedido}*
 
 Nos próximos instantes, você receberá o código Pix (copia e cola) para realizar o pagamento de forma rápida e segura.
 
-✅ Assim que o pagamento for confirmado, iniciaremos a separação do seu pedido para envio.
+Assim que o pagamento for confirmado, iniciaremos a separação do seu pedido para envio.
 
 Se tiver qualquer dúvida, é só responder esta mensagem. Estamos à disposição!`;
   }
@@ -130,15 +133,15 @@ Se tiver qualquer dúvida, é só responder esta mensagem. Estamos à disposiç�
       "abandonado"
     )
   ) {
-    mensagem = `Olá, *${nomeCliente}*! 😊
+    mensagem = `Olá, *${nomeCliente}*!
 
 Percebemos que você iniciou a compra do *Aparelho Abdominal AB TOMIC*, mas o pedido ainda não foi concluído.
 
-🛒 *Seu carrinho continua reservado por tempo limitado*, então você pode finalizar a compra em poucos segundos pelo link abaixo:
+*Seu carrinho continua reservado por tempo limitado*, então você pode finalizar a compra em poucos segundos pelo link abaixo:
 
 https://mundo-atleta-checkout.vercel.app/
 
-Se precisar de qualquer ajuda, é só responder esta mensagem. Será um prazer atender você! 💪`;
+Se precisar de qualquer ajuda, é só responder esta mensagem. Será um prazer atender você!`;
   }
 
   /*
@@ -148,7 +151,7 @@ Se precisar de qualquer ajuda, é só responder esta mensagem. Será um prazer a
    */
 
   else {
-    mensagem = `Olá, *${nomeCliente}*! 😊
+    mensagem = `Olá, *${nomeCliente}*!
 
 Aqui é da Mundo Atleta. Estamos entrando em contato sobre o seu pedido.
 
