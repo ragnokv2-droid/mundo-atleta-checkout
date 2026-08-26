@@ -23,12 +23,10 @@ function chaveCliente(r: Lead) {
   const email = normalizar(r.email);
   const telefone = normalizar(r.telefone).replace(/\D/g, "");
 
-  // Preferimos email + telefone.
   if (email && telefone) return `${email}|${telefone}`;
   if (email) return `email:${email}`;
   if (telefone) return `tel:${telefone}`;
 
-  // Fallback para evitar perder registros sem identificação.
   return `row:${r._row || Math.random()}`;
 }
 
@@ -40,9 +38,150 @@ function valorNumerico(valor: unknown) {
   return Number.isFinite(numero) ? numero : 0;
 }
 
+/*
+ * Converte diferentes formatos de data para uma data local.
+ *
+ * Aceita principalmente:
+ * 25/08/2026
+ * 25/08/2026 20:30:00
+ * 2026-08-25
+ * 2026-08-25T20:30:00
+ */
+function parseData(valor: unknown): Date | null {
+  if (!valor) return null;
+
+  const texto = String(valor).trim();
+
+  if (!texto) return null;
+
+  // DD/MM/YYYY
+  const br = texto.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/
+  );
+
+  if (br) {
+    const dia = Number(br[1]);
+    const mes = Number(br[2]) - 1;
+    const ano = Number(br[3]);
+    const hora = Number(br[4] || 0);
+    const minuto = Number(br[5] || 0);
+    const segundo = Number(br[6] || 0);
+
+    const data = new Date(
+      ano,
+      mes,
+      dia,
+      hora,
+      minuto,
+      segundo
+    );
+
+    return Number.isNaN(data.getTime()) ? null : data;
+  }
+
+  // YYYY-MM-DD
+  const iso = texto.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/
+  );
+
+  if (iso) {
+    const ano = Number(iso[1]);
+    const mes = Number(iso[2]) - 1;
+    const dia = Number(iso[3]);
+    const hora = Number(iso[4] || 0);
+    const minuto = Number(iso[5] || 0);
+    const segundo = Number(iso[6] || 0);
+
+    const data = new Date(
+      ano,
+      mes,
+      dia,
+      hora,
+      minuto,
+      segundo
+    );
+
+    return Number.isNaN(data.getTime()) ? null : data;
+  }
+
+  const tentativa = new Date(texto);
+
+  return Number.isNaN(tentativa.getTime())
+    ? null
+    : tentativa;
+}
+
+function inicioDoDia(data: Date) {
+  const resultado = new Date(data);
+  resultado.setHours(0, 0, 0, 0);
+  return resultado;
+}
+
+function fimDoDia(data: Date) {
+  const resultado = new Date(data);
+  resultado.setHours(23, 59, 59, 999);
+  return resultado;
+}
+
+function dataInicioFiltro(valor?: string | null) {
+  if (!valor) return null;
+
+  const partes = valor.split("-");
+
+  if (partes.length !== 3) return null;
+
+  const ano = Number(partes[0]);
+  const mes = Number(partes[1]) - 1;
+  const dia = Number(partes[2]);
+
+  const data = new Date(
+    ano,
+    mes,
+    dia,
+    0,
+    0,
+    0,
+    0
+  );
+
+  return Number.isNaN(data.getTime())
+    ? null
+    : data;
+}
+
+function dataFimFiltro(valor?: string | null) {
+  if (!valor) return null;
+
+  const partes = valor.split("-");
+
+  if (partes.length !== 3) return null;
+
+  const ano = Number(partes[0]);
+  const mes = Number(partes[1]) - 1;
+  const dia = Number(partes[2]);
+
+  const data = new Date(
+    ano,
+    mes,
+    dia,
+    23,
+    59,
+    59,
+    999
+  );
+
+  return Number.isNaN(data.getTime())
+    ? null
+    : data;
+}
+
 export async function GET(req: NextRequest) {
-  const password = req.nextUrl.searchParams.get("password");
-  const expected = process.env.DASHBOARD_PASSWORD || "mundoatleta";
+  const password =
+    req.nextUrl.searchParams.get("password");
+
+  const expected =
+    process.env.DASHBOARD_PASSWORD ||
+    "mundoatleta";
 
   if (password !== expected) {
     return NextResponse.json(
@@ -51,14 +190,36 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const webhook = process.env.LEADS_WEBHOOK_URL;
+  const webhook =
+    process.env.LEADS_WEBHOOK_URL;
 
   if (!webhook) {
     return NextResponse.json(
-      { error: "LEADS_WEBHOOK_URL não configurada" },
+      {
+        error:
+          "LEADS_WEBHOOK_URL não configurada",
+      },
       { status: 500 }
     );
   }
+
+  /*
+   * ============================================================
+   * FILTRO DE DATA
+   * ============================================================
+   */
+
+  const inicioParam =
+    req.nextUrl.searchParams.get("inicio");
+
+  const fimParam =
+    req.nextUrl.searchParams.get("fim");
+
+  const inicioFiltro =
+    dataInicioFiltro(inicioParam);
+
+  const fimFiltro =
+    dataFimFiltro(fimParam);
 
   try {
     const res = await fetch(webhook, {
@@ -69,7 +230,10 @@ export async function GET(req: NextRequest) {
 
     if (!json.ok && !json.data) {
       return NextResponse.json(
-        { error: "Resposta inválida da planilha" },
+        {
+          error:
+            "Resposta inválida da planilha",
+        },
         { status: 500 }
       );
     }
@@ -86,49 +250,42 @@ export async function GET(req: NextRequest) {
      * ============================================================
      * AGRUPAR CLIENTES
      * ============================================================
-     *
-     * A planilha registra uma linha a cada avanço do checkout.
-     *
-     * Exemplo:
-     *
-     * João - etapa 1
-     * João - etapa 2
-     * João - etapa 3
-     *
-     * Aqui transformamos isso em apenas UM cliente:
-     *
-     * João - etapa 3
      */
 
-    const clientesMap = new Map<string, Lead>();
+    const clientesMap =
+      new Map<string, Lead>();
 
     for (const row of rows) {
       const chave = chaveCliente(row);
 
-      const existente = clientesMap.get(chave);
+      const existente =
+        clientesMap.get(chave);
 
       if (!existente) {
         clientesMap.set(chave, row);
         continue;
       }
 
-      /*
-       * O _row representa a posição da linha na planilha.
-       * Quanto maior, mais recente.
-       */
-      const rowAtual = Number(row._row || 0);
-      const rowAnterior = Number(existente._row || 0);
+      const rowAtual =
+        Number(row._row || 0);
+
+      const rowAnterior =
+        Number(existente._row || 0);
 
       if (rowAtual >= rowAnterior) {
         clientesMap.set(chave, row);
       }
     }
 
-    const clientes = Array.from(clientesMap.values());
+    let clientes =
+      Array.from(clientesMap.values());
 
     /*
-     * Ordena do mais recente para o mais antigo.
+     * ============================================================
+     * ORDENAR DO MAIS RECENTE PARA O MAIS ANTIGO
+     * ============================================================
      */
+
     clientes.sort(
       (a, b) =>
         Number(b._row || 0) -
@@ -137,25 +294,74 @@ export async function GET(req: NextRequest) {
 
     /*
      * ============================================================
+     * APLICAR FILTRO DE DATA
+     * ============================================================
+     */
+
+    if (inicioFiltro || fimFiltro) {
+      clientes = clientes.filter(
+        (cliente) => {
+          const dataCliente =
+            parseData(cliente.data);
+
+          // Se existe filtro de data e não
+          // conseguimos interpretar a data,
+          // não mostramos o registro.
+          if (!dataCliente) {
+            return false;
+          }
+
+          if (
+            inicioFiltro &&
+            dataCliente < inicioFiltro
+          ) {
+            return false;
+          }
+
+          if (
+            fimFiltro &&
+            dataCliente > fimFiltro
+          ) {
+            return false;
+          }
+
+          return true;
+        }
+      );
+    }
+
+    /*
+     * ============================================================
      * STATUS
      * ============================================================
      */
 
-    const pixGerados = clientes.filter((r) =>
-      ["aguardando_pix", "pago"].includes(
-        normalizar(r.status)
-      )
-    );
+    const pixGerados =
+      clientes.filter((r) =>
+        [
+          "aguardando_pix",
+          "pago",
+        ].includes(
+          normalizar(r.status)
+        )
+      );
 
-    const pagos = clientes.filter(
-      (r) => normalizar(r.status) === "pago"
-    );
+    const pagos =
+      clientes.filter(
+        (r) =>
+          normalizar(r.status) ===
+          "pago"
+      );
 
-    const abandonados = clientes.filter((r) =>
-      ["abandonado_dados", "abandonado_frete"].includes(
-        normalizar(r.status)
-      )
-    );
+    const abandonados =
+      clientes.filter((r) =>
+        [
+          "abandonado_dados",
+          "abandonado_frete",
+        ].includes(
+          normalizar(r.status)
+        )
+      );
 
     /*
      * ============================================================
@@ -163,12 +369,16 @@ export async function GET(req: NextRequest) {
      * ============================================================
      */
 
-    const volume = pagos.reduce(
-      (acc: number, r: Lead) => {
-        return acc + valorNumerico(r.valor);
-      },
-      0
-    );
+    const volume =
+      pagos.reduce(
+        (acc: number, r: Lead) => {
+          return (
+            acc +
+            valorNumerico(r.valor)
+          );
+        },
+        0
+      );
 
     const ticketMedio =
       pagos.length > 0
@@ -179,35 +389,47 @@ export async function GET(req: NextRequest) {
      * ============================================================
      * FUNIL
      * ============================================================
-     *
-     * Como agora temos clientes únicos, os números ficam corretos.
      */
 
-    const etapa1 = clientes.filter(
-      (r) => Number(r.etapa) >= 1
-    ).length;
+    const etapa1 =
+      clientes.filter(
+        (r) =>
+          Number(r.etapa) >= 1
+      ).length;
 
-    const etapa2 = clientes.filter(
-      (r) => Number(r.etapa) >= 2
-    ).length;
+    const etapa2 =
+      clientes.filter(
+        (r) =>
+          Number(r.etapa) >= 2
+      ).length;
 
-    const etapa3 = clientes.filter(
-      (r) => Number(r.etapa) >= 3
-    ).length;
+    const etapa3 =
+      clientes.filter(
+        (r) =>
+          Number(r.etapa) >= 3
+      ).length;
 
-    const base = Math.max(etapa1, 1);
+    const base =
+      Math.max(etapa1, 1);
 
     const funil = {
       dados: 100,
-      entrega: Math.round(
-        (etapa2 / base) * 100
-      ),
-      pagamento: Math.round(
-        (etapa3 / base) * 100
-      ),
-      pix: Math.round(
-        (pixGerados.length / base) * 100
-      ),
+
+      entrega:
+        Math.round(
+          (etapa2 / base) * 100
+        ),
+
+      pagamento:
+        Math.round(
+          (etapa3 / base) * 100
+        ),
+
+      pix:
+        Math.round(
+          (pixGerados.length / base) *
+            100
+        ),
     };
 
     /*
@@ -219,7 +441,8 @@ export async function GET(req: NextRequest) {
     const conversaoPix =
       pixGerados.length > 0
         ? Math.round(
-            (pagos.length / pixGerados.length) *
+            (pagos.length /
+              pixGerados.length) *
               1000
           ) / 10
         : 0;
@@ -230,20 +453,21 @@ export async function GET(req: NextRequest) {
      * ============================================================
      */
 
-    const recentes = clientes
-      .slice(0, 30)
-      .map((r: Lead) => ({
-        row: r._row,
-        data: r.data,
-        nome: r.nome,
-        telefone: r.telefone,
-        email: r.email,
-        endereco: r.endereco,
-        valor: r.valor,
-        status: r.status,
-        etapa: r.etapa,
-        frete: r.frete,
-      }));
+    const recentes =
+      clientes
+        .slice(0, 30)
+        .map((r: Lead) => ({
+          row: r._row,
+          data: r.data,
+          nome: r.nome,
+          telefone: r.telefone,
+          email: r.email,
+          endereco: r.endereco,
+          valor: r.valor,
+          status: r.status,
+          etapa: r.etapa,
+          frete: r.frete,
+        }));
 
     /*
      * ============================================================
@@ -254,20 +478,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
 
+      filtro: {
+        inicio: inicioParam || null,
+        fim: fimParam || null,
+      },
+
       stats: {
         volume,
-        pixGerados: pixGerados.length,
-        pixPagos: pagos.length,
-        abandonados: abandonados.length,
+        pixGerados:
+          pixGerados.length,
+
+        pixPagos:
+          pagos.length,
+
+        abandonados:
+          abandonados.length,
+
         ticketMedio,
+
         conversaoPix,
+
         funil,
 
-        // Total de clientes únicos
-        totalLeads: clientes.length,
+        totalLeads:
+          clientes.length,
 
-        // Mantemos também o total bruto para conferência.
-        totalRegistrosPlanilha: rows.length,
+        totalRegistrosPlanilha:
+          rows.length,
       },
 
       recentes,
@@ -279,16 +516,25 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json(
-      { error: "Erro ao ler planilha" },
+      {
+        error:
+          "Erro ao ler planilha",
+      },
       { status: 500 }
     );
   }
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export async function POST(
+  req: NextRequest
+) {
+  const body =
+    await req.json();
 
-  const { password, row } = body;
+  const {
+    password,
+    row,
+  } = body;
 
   const expected =
     process.env.DASHBOARD_PASSWORD ||
@@ -296,7 +542,10 @@ export async function POST(req: NextRequest) {
 
   if (password !== expected) {
     return NextResponse.json(
-      { error: "Não autorizado" },
+      {
+        error:
+          "Não autorizado",
+      },
       { status: 401 }
     );
   }
@@ -306,7 +555,10 @@ export async function POST(req: NextRequest) {
 
   if (!webhook || !row) {
     return NextResponse.json(
-      { error: "Dados inválidos" },
+      {
+        error:
+          "Dados inválidos",
+      },
       { status: 400 }
     );
   }
@@ -315,13 +567,17 @@ export async function POST(req: NextRequest) {
     const url =
       `${webhook}?action=mark_paid&row=${row}`;
 
-    const res = await fetch(url, {
-      cache: "no-store",
-    });
+    const res =
+      await fetch(url, {
+        cache: "no-store",
+      });
 
-    const json = await res.json();
+    const json =
+      await res.json();
 
-    return NextResponse.json(json);
+    return NextResponse.json(
+      json
+    );
   } catch (err) {
     console.error(
       "Erro ao marcar pago:",
@@ -329,7 +585,10 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json(
-      { error: "Erro ao marcar pago" },
+      {
+        error:
+          "Erro ao marcar pago",
+      },
       { status: 500 }
     );
   }
