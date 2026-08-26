@@ -37,11 +37,248 @@ type Tab =
   | "pix"
   | "config";
 
+type DatePreset =
+  | ""
+  | "hoje"
+  | "ontem"
+  | "ultimos7"
+  | "estaSemana"
+  | "semanaPassada"
+  | "esteMes"
+  | "mesPassado"
+  | "esteAno"
+  | "personalizado";
+
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
+}
+
+function getLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function startOfWeek(date: Date) {
+  const result = new Date(date);
+  const day = result.getDay();
+
+  const diff =
+    day === 0 ? -6 : 1 - day;
+
+  result.setDate(
+    result.getDate() + diff
+  );
+
+  result.setHours(0, 0, 0, 0);
+
+  return result;
+}
+
+function endOfWeek(date: Date) {
+  const result = startOfWeek(date);
+
+  result.setDate(
+    result.getDate() + 6
+  );
+
+  result.setHours(
+    23,
+    59,
+    59,
+    999
+  );
+
+  return result;
+}
+
+function getPresetDates(
+  preset: DatePreset
+): {
+  from: string;
+  to: string;
+} {
+  const now = new Date();
+
+  if (preset === "hoje") {
+    const today =
+      getLocalDateString(now);
+
+    return {
+      from: today,
+      to: today,
+    };
+  }
+
+  if (preset === "ontem") {
+    const yesterday =
+      new Date(now);
+
+    yesterday.setDate(
+      yesterday.getDate() - 1
+    );
+
+    const date =
+      getLocalDateString(
+        yesterday
+      );
+
+    return {
+      from: date,
+      to: date,
+    };
+  }
+
+  if (preset === "ultimos7") {
+    const from =
+      new Date(now);
+
+    from.setDate(
+      from.getDate() - 6
+    );
+
+    return {
+      from: getLocalDateString(
+        from
+      ),
+      to: getLocalDateString(
+        now
+      ),
+    };
+  }
+
+  if (preset === "estaSemana") {
+    const from =
+      startOfWeek(now);
+
+    const to =
+      endOfWeek(now);
+
+    return {
+      from: getLocalDateString(
+        from
+      ),
+      to: getLocalDateString(
+        to
+      ),
+    };
+  }
+
+  if (
+    preset === "semanaPassada"
+  ) {
+    const from =
+      startOfWeek(now);
+
+    from.setDate(
+      from.getDate() - 7
+    );
+
+    const to =
+      new Date(from);
+
+    to.setDate(
+      to.getDate() + 6
+    );
+
+    return {
+      from: getLocalDateString(
+        from
+      ),
+      to: getLocalDateString(
+        to
+      ),
+    };
+  }
+
+  if (preset === "esteMes") {
+    const from =
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1
+      );
+
+    const to =
+      new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0
+      );
+
+    return {
+      from: getLocalDateString(
+        from
+      ),
+      to: getLocalDateString(
+        to
+      ),
+    };
+  }
+
+  if (preset === "mesPassado") {
+    const from =
+      new Date(
+        now.getFullYear(),
+        now.getMonth() - 1,
+        1
+      );
+
+    const to =
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        0
+      );
+
+    return {
+      from: getLocalDateString(
+        from
+      ),
+      to: getLocalDateString(
+        to
+      ),
+    };
+  }
+
+  if (preset === "esteAno") {
+    const from =
+      new Date(
+        now.getFullYear(),
+        0,
+        1
+      );
+
+    const to =
+      new Date(
+        now.getFullYear(),
+        11,
+        31
+      );
+
+    return {
+      from: getLocalDateString(
+        from
+      ),
+      to: getLocalDateString(
+        to
+      ),
+    };
+  }
+
+  return {
+    from: "",
+    to: "",
+  };
 }
 
 /*
@@ -125,29 +362,31 @@ Se precisar de qualquer ajuda, é só responder esta mensagem.`;
   )}`;
 }
 
-/*
- * ============================================================
- * GRÁFICO
- * ============================================================
- */
-
 function LineChart() {
   const points = [
-    8, 12, 10, 15, 18, 14,
-    20, 22, 19, 25, 28, 24,
+    8,
+    12,
+    10,
+    15,
+    18,
+    14,
+    20,
+    22,
+    19,
+    25,
+    28,
+    24,
   ];
 
   const max = 30;
   const w = 280;
   const h = 100;
-
   const step =
     w / (points.length - 1);
 
   const path = points
     .map((p, i) => {
       const x = i * step;
-
       const y =
         h - (p / max) * h;
 
@@ -199,12 +438,6 @@ function LineChart() {
     </svg>
   );
 }
-
-/*
- * ============================================================
- * FUNIL
- * ============================================================
- */
 
 function Funnel({
   funil,
@@ -264,12 +497,6 @@ function Funnel({
   );
 }
 
-/*
- * ============================================================
- * STATUS
- * ============================================================
- */
-
 function statusBadge(
   status: string
 ) {
@@ -295,16 +522,10 @@ function statusBadge(
   return "bg-gray-100 text-gray-600";
 }
 
-/*
- * ============================================================
- * DATA
- * ============================================================
- */
-
 function formatDateLabel(
   date: string
 ) {
-  if (!date) return "Todos os períodos";
+  if (!date) return "";
 
   const parts =
     date.split("-");
@@ -315,90 +536,6 @@ function formatDateLabel(
 
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
-
-function formatDateInput(
-  date: Date
-) {
-  const year =
-    date.getFullYear();
-
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-/*
- * ============================================================
- * INÍCIO DA SEMANA
- * Segunda-feira = primeiro dia
- * ============================================================
- */
-
-function getStartOfWeek(
-  date: Date
-) {
-  const result =
-    new Date(date);
-
-  const day =
-    result.getDay();
-
-  const diff =
-    day === 0
-      ? -6
-      : 1 - day;
-
-  result.setDate(
-    result.getDate() + diff
-  );
-
-  result.setHours(
-    0,
-    0,
-    0,
-    0
-  );
-
-  return result;
-}
-
-/*
- * ============================================================
- * FIM DA SEMANA
- * ============================================================
- */
-
-function getEndOfWeek(
-  date: Date
-) {
-  const result =
-    getStartOfWeek(date);
-
-  result.setDate(
-    result.getDate() + 6
-  );
-
-  result.setHours(
-    23,
-    59,
-    59,
-    999
-  );
-
-  return result;
-}
-
-/*
- * ============================================================
- * DASHBOARD
- * ============================================================
- */
 
 export default function DashboardPage() {
   const [password, setPassword] =
@@ -427,7 +564,7 @@ export default function DashboardPage() {
 
   /*
    * ============================================================
-   * FILTRO DE DATA
+   * FILTRO
    * ============================================================
    */
 
@@ -443,14 +580,11 @@ export default function DashboardPage() {
   const [appliedDateTo, setAppliedDateTo] =
     useState("");
 
-  const [selectedPreset, setSelectedPreset] =
-    useState("");
+  const [preset, setPreset] =
+    useState<DatePreset>("");
 
-  /*
-   * ============================================================
-   * CARREGAR DADOS
-   * ============================================================
-   */
+  const [showCustom, setShowCustom] =
+    useState(false);
 
   async function load(
     pwd: string,
@@ -471,12 +605,7 @@ export default function DashboardPage() {
 
       /*
        * IMPORTANTE:
-       * A API route.ts espera:
-       *
-       * inicio
-       * fim
-       *
-       * e não dateFrom/dateTo.
+       * A API espera "inicio" e "fim".
        */
 
       if (from) {
@@ -511,7 +640,6 @@ export default function DashboardPage() {
         );
 
         setAuthed(false);
-
         return;
       }
 
@@ -538,231 +666,14 @@ export default function DashboardPage() {
     }
   }
 
-  /*
-   * ============================================================
-   * APLICAR PERÍODO
-   * ============================================================
-   */
-
-  function aplicarPeriodo(
-    from: string,
-    to: string,
-    preset = ""
+  function aplicarFiltro(
+    from = dateFrom,
+    to = dateTo
   ) {
-    setDateFrom(from);
-    setDateTo(to);
-
-    setAppliedDateFrom(from);
-    setAppliedDateTo(to);
-
-    setSelectedPreset(
-      preset
-    );
-
-    load(
-      password,
-      from,
-      to
-    );
-  }
-
-  /*
-   * ============================================================
-   * PREDEFINIÇÕES DE DATA
-   * ============================================================
-   */
-
-  function selecionarPreset(
-    preset: string
-  ) {
-    const hoje =
-      new Date();
-
-    let inicio: Date;
-    let fim: Date;
-
-    switch (preset) {
-
-      /*
-       * HOJE
-       */
-
-      case "hoje":
-        inicio = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate()
-        );
-
-        fim = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate()
-        );
-
-        break;
-
-      /*
-       * ONTEM
-       */
-
-      case "ontem":
-        inicio =
-          new Date(hoje);
-
-        inicio.setDate(
-          inicio.getDate() - 1
-        );
-
-        fim =
-          new Date(inicio);
-
-        break;
-
-      /*
-       * ÚLTIMOS 7 DIAS
-       */
-
-      case "7dias":
-        inicio =
-          new Date(hoje);
-
-        inicio.setDate(
-          inicio.getDate() - 6
-        );
-
-        fim =
-          new Date(hoje);
-
-        break;
-
-      /*
-       * ESTA SEMANA
-       */
-
-      case "semana":
-        inicio =
-          getStartOfWeek(
-            hoje
-          );
-
-        fim =
-          getEndOfWeek(
-            hoje
-          );
-
-        break;
-
-      /*
-       * SEMANA PASSADA
-       */
-
-      case "semana_passada":
-        inicio =
-          getStartOfWeek(
-            hoje
-          );
-
-        inicio.setDate(
-          inicio.getDate() - 7
-        );
-
-        fim =
-          new Date(inicio);
-
-        fim.setDate(
-          fim.getDate() + 6
-        );
-
-        break;
-
-      /*
-       * ESTE MÊS
-       */
-
-      case "mes":
-        inicio = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          1
-        );
-
-        fim = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth() + 1,
-          0
-        );
-
-        break;
-
-      /*
-       * MÊS PASSADO
-       */
-
-      case "mes_passado":
-        inicio = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth() - 1,
-          1
-        );
-
-        fim = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          0
-        );
-
-        break;
-
-      /*
-       * ÚLTIMOS 30 DIAS
-       */
-
-      case "30dias":
-        inicio =
-          new Date(hoje);
-
-        inicio.setDate(
-          inicio.getDate() - 29
-        );
-
-        fim =
-          new Date(hoje);
-
-        break;
-
-      default:
-        return;
-    }
-
-    const from =
-      formatDateInput(
-        inicio
-      );
-
-    const to =
-      formatDateInput(
-        fim
-      );
-
-    aplicarPeriodo(
-      from,
-      to,
-      preset
-    );
-  }
-
-  /*
-   * ============================================================
-   * FILTRO PERSONALIZADO
-   * ============================================================
-   */
-
-  function aplicarFiltro() {
     if (
-      dateFrom &&
-      dateTo &&
-      dateFrom > dateTo
+      from &&
+      to &&
+      from > to
     ) {
       alert(
         "A data inicial não pode ser maior que a data final."
@@ -772,29 +683,69 @@ export default function DashboardPage() {
     }
 
     setAppliedDateFrom(
-      dateFrom
+      from
     );
 
     setAppliedDateTo(
-      dateTo
-    );
-
-    setSelectedPreset(
-      "personalizado"
+      to
     );
 
     load(
       password,
-      dateFrom,
-      dateTo
+      from,
+      to
     );
   }
 
-  /*
-   * ============================================================
-   * LIMPAR FILTRO
-   * ============================================================
-   */
+  function selecionarPreset(
+    selected: DatePreset
+  ) {
+    if (
+      selected ===
+      "personalizado"
+    ) {
+      setPreset(
+        "personalizado"
+      );
+
+      setShowCustom(true);
+
+      return;
+    }
+
+    const dates =
+      getPresetDates(
+        selected
+      );
+
+    setPreset(
+      selected
+    );
+
+    setShowCustom(false);
+
+    setDateFrom(
+      dates.from
+    );
+
+    setDateTo(
+      dates.to
+    );
+
+    setAppliedDateFrom(
+      dates.from
+    );
+
+    setAppliedDateTo(
+      dates.to
+    );
+
+    load(
+      password,
+      dates.from,
+      dates.to
+    );
+  }
 
   function limparFiltro() {
     setDateFrom("");
@@ -803,7 +754,9 @@ export default function DashboardPage() {
     setAppliedDateFrom("");
     setAppliedDateTo("");
 
-    setSelectedPreset("");
+    setPreset("");
+
+    setShowCustom(false);
 
     load(
       password,
@@ -811,12 +764,6 @@ export default function DashboardPage() {
       ""
     );
   }
-
-  /*
-   * ============================================================
-   * LOGIN AUTOMÁTICO
-   * ============================================================
-   */
 
   useEffect(() => {
     const saved =
@@ -826,7 +773,6 @@ export default function DashboardPage() {
 
     if (saved) {
       setPassword(saved);
-
       load(saved);
     }
   }, []);
@@ -879,12 +825,6 @@ export default function DashboardPage() {
         return;
       }
 
-      /*
-       * ========================================================
-       * META PIXEL
-       * ========================================================
-       */
-
       if (
         typeof window !==
           "undefined" &&
@@ -919,13 +859,11 @@ export default function DashboardPage() {
           "track",
           "Purchase",
           {
-            value:
-              isNaN(valor)
-                ? 0
-                : valor,
+            value: isNaN(valor)
+              ? 0
+              : valor,
 
-            currency:
-              "BRL",
+            currency: "BRL",
 
             content_name:
               "Mundo Atleta",
@@ -934,26 +872,11 @@ export default function DashboardPage() {
               "product",
           }
         );
-
-        console.log(
-          "Meta Pixel Purchase disparado:",
-          isNaN(valor)
-            ? 0
-            : valor
-        );
       }
 
-      /*
-       * Recarrega mantendo
-       * o período atual.
-       */
-
       await load(
-        password,
-        appliedDateFrom,
-        appliedDateTo
+        password
       );
-
     } catch (error) {
       console.error(
         error
@@ -964,12 +887,6 @@ export default function DashboardPage() {
       );
     }
   }
-
-  /*
-   * ============================================================
-   * LISTAS
-   * ============================================================
-   */
 
   const vendas =
     recentes.filter(
@@ -1005,12 +922,6 @@ export default function DashboardPage() {
         )
     );
 
-  /*
-   * ============================================================
-   * MENU
-   * ============================================================
-   */
-
   const menu: {
     id: Tab;
     label: string;
@@ -1043,12 +954,6 @@ export default function DashboardPage() {
     },
   ];
 
-  /*
-   * ============================================================
-   * LEAD ROW
-   * ============================================================
-   */
-
   function LeadRow({
     lead,
     showPaidBtn,
@@ -1071,32 +976,26 @@ export default function DashboardPage() {
 
     return (
       <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 border-b border-gray-50 last:border-0">
-
         <div className="flex-1 min-w-0">
-
           <p className="text-sm font-medium text-gray-900 truncate">
             {lead.nome ||
               "Sem nome"}
           </p>
 
           <p className="text-xs text-gray-500 mt-0.5">
-
             {lead.data
               ? `${lead.data} · `
               : ""}
 
             {lead.telefone ||
-              "—"}
-
-            {" · R$ "}
-
+              "—"}{" "}
+            · R${" "}
             {lead.valor ||
               "0"}
 
             {lead.frete
               ? ` · ${lead.frete}`
               : ""}
-
           </p>
 
           <span
@@ -1107,11 +1006,9 @@ export default function DashboardPage() {
             {lead.status ||
               "—"}
           </span>
-
         </div>
 
         <div className="flex items-center gap-2">
-
           {lead.telefone && (
             <a
               href={waLink(
@@ -1131,46 +1028,32 @@ export default function DashboardPage() {
           {showPaidBtn &&
             status ===
               "aguardando_pix" && (
-
-            <button
-              onClick={() =>
-                markPaid(
-                  lead
-                )
-              }
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-600 text-white hover:bg-teal-700"
-            >
-              Marcar pago
-            </button>
-
-          )}
-
+              <button
+                onClick={() =>
+                  markPaid(
+                    lead
+                  )
+                }
+                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+              >
+                Marcar pago
+              </button>
+            )}
         </div>
-
       </div>
     );
   }
 
-  /*
-   * ============================================================
-   * LOGIN
-   * ============================================================
-   */
-
   if (!authed) {
     return (
       <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center p-4">
-
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
-
           <div className="flex items-center gap-2 mb-6">
-
             <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold">
               MA
             </div>
 
             <div>
-
               <p className="font-bold text-gray-900">
                 Mundo Atleta
               </p>
@@ -1178,9 +1061,7 @@ export default function DashboardPage() {
               <p className="text-xs text-gray-400">
                 Dashboard
               </p>
-
             </div>
-
           </div>
 
           <input
@@ -1220,36 +1101,21 @@ export default function DashboardPage() {
               ? "Entrando..."
               : "Entrar"}
           </button>
-
         </div>
-
       </div>
     );
   }
 
-  /*
-   * ============================================================
-   * DASHBOARD
-   * ============================================================
-   */
-
   return (
     <div className="min-h-screen bg-[#f4f6f8] flex">
-
-      {/* ======================================================
-          SIDEBAR DESKTOP
-          ====================================================== */}
-
+      {/* SIDEBAR */}
       <aside className="hidden md:flex w-56 flex-col bg-white border-r border-gray-100 min-h-screen sticky top-0">
-
         <div className="p-4 flex items-center gap-2 border-b border-gray-50">
-
           <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm font-bold">
             MA
           </div>
 
           <div>
-
             <p className="font-bold text-gray-900 text-sm">
               Mundo Atleta
             </p>
@@ -1257,15 +1123,11 @@ export default function DashboardPage() {
             <p className="text-[10px] text-gray-400">
               Checkout
             </p>
-
           </div>
-
         </div>
 
         <nav className="p-3 flex-1 space-y-1">
-
           {menu.map((m) => (
-
             <button
               key={m.id}
               onClick={() =>
@@ -1277,31 +1139,20 @@ export default function DashboardPage() {
                   : "text-gray-600 hover:bg-gray-50"
               }`}
             >
-
               <span className="opacity-70">
                 {m.icon}
               </span>
 
               {m.label}
-
             </button>
-
           ))}
-
         </nav>
-
       </aside>
 
       <div className="flex-1 min-w-0">
-
-        {/* ====================================================
-            TOP BAR
-            ==================================================== */}
-
+        {/* TOP BAR */}
         <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
-
           <div className="flex items-center gap-2">
-
             <button
               className="md:hidden text-gray-600 p-1.5 rounded-lg hover:bg-gray-50"
               onClick={() =>
@@ -1316,63 +1167,43 @@ export default function DashboardPage() {
             <p className="text-sm font-semibold text-gray-900 capitalize">
               {tab}
             </p>
-
           </div>
 
           <div className="flex items-center gap-2">
-
             <span className="hidden sm:block text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
-
               {appliedDateFrom ||
               appliedDateTo
                 ? `${formatDateLabel(
                     appliedDateFrom
-                  )}${
+                  )} ${
                     appliedDateTo
-                      ? ` até ${formatDateLabel(
+                      ? `até ${formatDateLabel(
                           appliedDateTo
                         )}`
                       : ""
                   }`
                 : "Todos os períodos"}
-
             </span>
 
             <button
               onClick={() =>
-                load(
-                  password,
-                  appliedDateFrom,
-                  appliedDateTo
-                )
+                load(password)
               }
-              disabled={loading}
-              className="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg disabled:opacity-50"
+              className="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg"
             >
-              {loading
-                ? "Atualizando..."
-                : "Atualizar"}
+              Atualizar
             </button>
-
           </div>
-
         </header>
 
-        {/* ====================================================
-            MENU MOBILE
-            ==================================================== */}
-
+        {/* MENU MOBILE */}
         {menuOpen && (
-
           <div className="md:hidden bg-white border-b border-gray-100 p-2 flex gap-1 overflow-x-auto">
-
             {menu.map((m) => (
-
               <button
                 key={m.id}
                 onClick={() => {
                   setTab(m.id);
-
                   setMenuOpen(
                     false
                   );
@@ -1385,270 +1216,235 @@ export default function DashboardPage() {
               >
                 {m.label}
               </button>
-
             ))}
-
           </div>
-
         )}
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
 
-          {/* ==================================================
-              FILTRO DE CALENDÁRIO
-              ================================================== */}
+          {/* ==================================================== */}
+          {/* FILTRO DE DATAS */}
+          {/* ==================================================== */}
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-5 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-5">
 
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col gap-4">
 
               <div>
-
                 <p className="text-sm font-semibold text-gray-900">
                   Período
                 </p>
 
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Selecione um período para analisar os dados
+                  Selecione um período para analisar seus dados
                 </p>
-
               </div>
 
-              {(appliedDateFrom ||
-                appliedDateTo) && (
+              {/* PRESETS */}
 
-                <button
-                  onClick={
-                    limparFiltro
-                  }
-                  className="text-xs font-medium text-gray-500 hover:text-gray-800"
-                >
-                  Limpar
-                </button>
+              <div className="flex flex-wrap gap-2">
 
-              )}
-
-            </div>
-
-            {/* =================================================
-                PREDEFINIÇÕES
-                ================================================= */}
-
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-
-              {[
-                {
-                  id: "hoje",
-                  label: "Hoje",
-                },
-                {
-                  id: "ontem",
-                  label: "Ontem",
-                },
-                {
-                  id: "7dias",
-                  label: "Últimos 7 dias",
-                },
-                {
-                  id: "semana",
-                  label: "Esta semana",
-                },
-                {
-                  id: "semana_passada",
-                  label: "Semana passada",
-                },
-                {
-                  id: "mes",
-                  label: "Este mês",
-                },
-                {
-                  id: "mes_passado",
-                  label: "Mês passado",
-                },
-                {
-                  id: "30dias",
-                  label: "Últimos 30 dias",
-                },
-              ].map(
-                (preset) => (
-
+                {[
+                  {
+                    id: "hoje" as DatePreset,
+                    label: "Hoje",
+                  },
+                  {
+                    id: "ontem" as DatePreset,
+                    label: "Ontem",
+                  },
+                  {
+                    id: "ultimos7" as DatePreset,
+                    label: "Últimos 7 dias",
+                  },
+                  {
+                    id: "estaSemana" as DatePreset,
+                    label: "Esta semana",
+                  },
+                  {
+                    id: "semanaPassada" as DatePreset,
+                    label: "Semana passada",
+                  },
+                  {
+                    id: "esteMes" as DatePreset,
+                    label: "Este mês",
+                  },
+                  {
+                    id: "mesPassado" as DatePreset,
+                    label: "Mês passado",
+                  },
+                  {
+                    id: "esteAno" as DatePreset,
+                    label: "Este ano",
+                  },
+                ].map((item) => (
                   <button
-                    key={
-                      preset.id
-                    }
+                    key={item.id}
                     onClick={() =>
                       selecionarPreset(
-                        preset.id
+                        item.id
                       )
                     }
-                    disabled={
-                      loading
-                    }
-                    className={`flex-shrink-0 px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                      selectedPreset ===
-                      preset.id
+                    disabled={loading}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                      preset === item.id
                         ? "bg-teal-600 text-white border-teal-600"
-                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                     } disabled:opacity-50`}
                   >
-                    {
-                      preset.label
-                    }
+                    {item.label}
                   </button>
-
-                )
-              )}
-
-            </div>
-
-            {/* =================================================
-                PERSONALIZADO
-                ================================================= */}
-
-            <div className="border-t border-gray-100 pt-4">
-
-              <p className="text-xs font-medium text-gray-500 mb-3">
-                Período personalizado
-              </p>
-
-              <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-
-                <div className="flex-1">
-
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                    Data inicial
-                  </label>
-
-                  <input
-                    type="date"
-                    value={
-                      dateFrom
-                    }
-                    onChange={(
-                      e
-                    ) => {
-                      setDateFrom(
-                        e.target
-                          .value
-                      );
-
-                      setSelectedPreset(
-                        "personalizado"
-                      );
-                    }}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                  />
-
-                </div>
-
-                <div className="flex-1">
-
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                    Data final
-                  </label>
-
-                  <input
-                    type="date"
-                    value={
-                      dateTo
-                    }
-                    onChange={(
-                      e
-                    ) => {
-                      setDateTo(
-                        e.target
-                          .value
-                      );
-
-                      setSelectedPreset(
-                        "personalizado"
-                      );
-                    }}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                  />
-
-                </div>
+                ))}
 
                 <button
-                  onClick={
-                    aplicarFiltro
+                  onClick={() =>
+                    selecionarPreset(
+                      "personalizado"
+                    )
                   }
-                  disabled={
-                    loading
-                  }
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+                  disabled={loading}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                    preset ===
+                    "personalizado"
+                      ? "bg-teal-600 text-white border-teal-600"
+                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  } disabled:opacity-50`}
                 >
-                  {loading
-                    ? "Carregando..."
-                    : "Aplicar"}
+                  Personalizado
                 </button>
 
               </div>
 
-            </div>
+              {/* DATAS PERSONALIZADAS */}
 
-            {/* =================================================
-                FILTRO ATIVO
-                ================================================= */}
+              {showCustom && (
+                <div className="border-t border-gray-100 pt-4">
 
-            {(appliedDateFrom ||
-              appliedDateTo) && (
+                  <div className="grid md:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
 
-              <div className="mt-4 flex items-center gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                        Data inicial
+                      </label>
 
-                <span className="w-2 h-2 rounded-full bg-teal-500" />
+                      <input
+                        type="date"
+                        value={
+                          dateFrom
+                        }
+                        onChange={(e) =>
+                          setDateFrom(
+                            e.target
+                              .value
+                          )
+                        }
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                      />
+                    </div>
 
-                <p className="text-xs text-gray-500">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                        Data final
+                      </label>
 
-                  {selectedPreset !==
-                    "personalizado" &&
-                  selectedPreset
-                    ? {
-                        hoje: "Hoje",
-                        ontem: "Ontem",
-                        "7dias":
-                          "Últimos 7 dias",
-                        semana:
-                          "Esta semana",
-                        semana_passada:
-                          "Semana passada",
-                        mes:
-                          "Este mês",
-                        mes_passado:
-                          "Mês passado",
-                        "30dias":
-                          "Últimos 30 dias",
-                      }[
-                        selectedPreset
-                      ]
-                    : `${formatDateLabel(
-                        appliedDateFrom
-                      )}${
+                      <input
+                        type="date"
+                        value={
+                          dateTo
+                        }
+                        onChange={(e) =>
+                          setDateTo(
+                            e.target
+                              .value
+                          )
+                        }
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        aplicarFiltro()
+                      }
+                      disabled={
+                        loading
+                      }
+                      className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+                    >
+                      {loading
+                        ? "Carregando..."
+                        : "Aplicar"}
+                    </button>
+
+                    <button
+                      onClick={
+                        limparFiltro
+                      }
+                      disabled={
+                        loading
+                      }
+                      className="bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+                    >
+                      Limpar
+                    </button>
+
+                  </div>
+
+                </div>
+              )}
+
+              {/* STATUS DO FILTRO */}
+
+              {appliedDateFrom ||
+              appliedDateTo ? (
+                <div className="flex items-center justify-between gap-3 bg-teal-50 rounded-xl px-3.5 py-2.5">
+
+                  <p className="text-xs text-teal-800">
+
+                    <span className="font-semibold">
+                      Período ativo:
+                    </span>{" "}
+
+                    {formatDateLabel(
+                      appliedDateFrom
+                    )}
+
+                    {appliedDateTo &&
+                      ` até ${formatDateLabel(
                         appliedDateTo
-                          ? ` até ${formatDateLabel(
-                              appliedDateTo
-                            )}`
-                          : ""
-                      }`}
+                      )}`}
 
-                </p>
+                  </p>
 
-              </div>
+                  <button
+                    onClick={
+                      limparFiltro
+                    }
+                    className="text-xs font-medium text-teal-700 hover:text-teal-900"
+                  >
+                    Remover
+                  </button>
 
-            )}
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-xl px-3.5 py-2.5">
+                  <p className="text-xs text-gray-500">
+                    Exibindo todos os períodos
+                  </p>
+                </div>
+              )}
 
+            </div>
           </div>
 
-          {/* ==================================================
-              DASHBOARD
-              ================================================== */}
+          {/* ==================================================== */}
+          {/* DASHBOARD */}
+          {/* ==================================================== */}
 
           {tab ===
             "dashboard" && (
             <>
-
               <div>
-
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900">
                   Boas vindas
                 </h1>
@@ -1656,11 +1452,9 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-500">
                   Confira o que está acontecendo no seu checkout
                 </p>
-
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-
                 <p className="text-xs text-gray-500 mb-1">
                   Volume de vendas
                 </p>
@@ -1678,13 +1472,10 @@ export default function DashboardPage() {
                     0}{" "}
                   venda(s)
                 </p>
-
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
-
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-
                   <p className="text-sm font-semibold text-gray-900 mb-3">
                     Funil de Vendas
                   </p>
@@ -1696,11 +1487,9 @@ export default function DashboardPage() {
                       }
                     />
                   )}
-
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-
                   <p className="text-sm font-semibold text-gray-900 mb-1">
                     Taxa de conversão PIX
                   </p>
@@ -1721,13 +1510,10 @@ export default function DashboardPage() {
                   </p>
 
                   <LineChart />
-
                 </div>
-
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-
                 {[
                   {
                     label:
@@ -1765,39 +1551,29 @@ export default function DashboardPage() {
                           0
                       ),
                   },
-                ].map(
-                  (k) => (
+                ].map((k) => (
+                  <div
+                    key={
+                      k.label
+                    }
+                    className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
+                  >
+                    <p className="text-[11px] text-gray-500">
+                      {k.label}
+                    </p>
 
-                    <div
-                      key={
-                        k.label
-                      }
-                      className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
-                    >
-
-                      <p className="text-[11px] text-gray-500">
-                        {k.label}
-                      </p>
-
-                      <p className="text-xl font-bold text-gray-900 mt-2">
-                        {k.value}
-                      </p>
-
-                    </div>
-
-                  )
-                )}
-
+                    <p className="text-xl font-bold text-gray-900 mt-2">
+                      {k.value}
+                    </p>
+                  </div>
+                ))}
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
                 <div className="px-5 py-4 border-b border-gray-50">
-
                   <p className="text-sm font-semibold text-gray-900">
                     Atividade recente
                   </p>
-
                 </div>
 
                 {recentes.filter(
@@ -1806,13 +1582,10 @@ export default function DashboardPage() {
                     l.telefone
                 ).length ===
                 0 ? (
-
                   <p className="p-6 text-sm text-gray-400 text-center">
                     Nenhum lead neste período
                   </p>
-
                 ) : (
-
                   recentes
                     .filter(
                       (l) =>
@@ -1827,7 +1600,6 @@ export default function DashboardPage() {
                       (
                         lead
                       ) => (
-
                         <LeadRow
                           key={
                             lead.row
@@ -1837,27 +1609,21 @@ export default function DashboardPage() {
                           }
                           showPaidBtn
                         />
-
                       )
                     )
-
                 )}
-
               </div>
-
             </>
           )}
 
-          {/* ==================================================
-              VENDAS
-              ================================================== */}
+          {/* ==================================================== */}
+          {/* VENDAS */}
+          {/* ==================================================== */}
 
           {tab ===
             "vendas" && (
             <>
-
               <div>
-
                 <h1 className="text-xl font-bold text-gray-900">
                   Vendas
                 </h1>
@@ -1869,25 +1635,19 @@ export default function DashboardPage() {
                       0
                   )}
                 </p>
-
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
                 {vendas.length ===
                 0 ? (
-
                   <p className="p-6 text-sm text-gray-400 text-center">
                     Nenhuma venda neste período
                   </p>
-
                 ) : (
-
                   vendas.map(
                     (
                       lead
                     ) => (
-
                       <LeadRow
                         key={
                           lead.row
@@ -1896,27 +1656,21 @@ export default function DashboardPage() {
                           lead
                         }
                       />
-
                     )
                   )
-
                 )}
-
               </div>
-
             </>
           )}
 
-          {/* ==================================================
-              CARRINHOS
-              ================================================== */}
+          {/* ==================================================== */}
+          {/* CARRINHOS */}
+          {/* ==================================================== */}
 
           {tab ===
             "carrinhos" && (
             <>
-
               <div>
-
                 <h1 className="text-xl font-bold text-gray-900">
                   Carrinhos abandonados
                 </h1>
@@ -1927,25 +1681,19 @@ export default function DashboardPage() {
                     carrinhos.length
                   }
                 </p>
-
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
                 {carrinhos.length ===
                 0 ? (
-
                   <p className="p-6 text-sm text-gray-400 text-center">
                     Nenhum carrinho abandonado neste período
                   </p>
-
                 ) : (
-
                   carrinhos.map(
                     (
                       lead
                     ) => (
-
                       <LeadRow
                         key={
                           lead.row
@@ -1954,27 +1702,21 @@ export default function DashboardPage() {
                           lead
                         }
                       />
-
                     )
                   )
-
                 )}
-
               </div>
-
             </>
           )}
 
-          {/* ==================================================
-              PIX
-              ================================================== */}
+          {/* ==================================================== */}
+          {/* PIX */}
+          {/* ==================================================== */}
 
           {tab ===
             "pix" && (
             <>
-
               <div>
-
                 <h1 className="text-xl font-bold text-gray-900">
                   PIX
                 </h1>
@@ -1982,25 +1724,19 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-500">
                   Gerados e aguardando confirmação
                 </p>
-
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-
                 {pixList.length ===
                 0 ? (
-
                   <p className="p-6 text-sm text-gray-400 text-center">
                     Nenhum PIX neste período
                   </p>
-
                 ) : (
-
                   pixList.map(
                     (
                       lead
                     ) => (
-
                       <LeadRow
                         key={
                           lead.row
@@ -2010,27 +1746,21 @@ export default function DashboardPage() {
                         }
                         showPaidBtn
                       />
-
                     )
                   )
-
                 )}
-
               </div>
-
             </>
           )}
 
-          {/* ==================================================
-              CONFIGURAÇÕES
-              ================================================== */}
+          {/* ==================================================== */}
+          {/* CONFIGURAÇÕES */}
+          {/* ==================================================== */}
 
           {tab ===
             "config" && (
             <>
-
               <div>
-
                 <h1 className="text-xl font-bold text-gray-900">
                   Configurações
                 </h1>
@@ -2038,86 +1768,61 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-500">
                   Informações do painel
                 </p>
-
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3 text-sm text-gray-600">
-
                 <p>
-
                   <strong>
                     Senha:
                   </strong>{" "}
-
                   definida em{" "}
-
                   <code className="text-xs bg-gray-50 px-1 rounded">
                     DASHBOARD_PASSWORD
                   </code>{" "}
-
                   na Vercel
-
                 </p>
 
                 <p>
-
                   <strong>
                     Dados:
                   </strong>{" "}
-
                   vêm da planilha Google (Apps Script)
-
                 </p>
 
                 <p>
-
                   <strong>
                     Marcar pago:
                   </strong>{" "}
-
                   use o botão na lista quando o PIX cair no extrato do banco
-
                 </p>
 
                 <p>
-
                   <strong>
                     Meta Ads:
                   </strong>{" "}
-
                   o evento{" "}
-
                   <code className="text-xs bg-gray-50 px-1 rounded">
                     Purchase
                   </code>{" "}
-
                   é enviado somente após marcar o pedido como pago.
-
                 </p>
 
                 <p>
-
                   <strong>
                     Filtro:
                   </strong>{" "}
-
-                  use os períodos predefinidos ou escolha uma data inicial e final personalizada.
-
+                  use os períodos rápidos ou selecione Personalizado.
                 </p>
 
                 <p>
-
                   <strong>
                     Fuso horário:
                   </strong>{" "}
-
                   configure o Apps Script para América/São Paulo
-
                 </p>
 
                 <button
                   onClick={() => {
-
                     sessionStorage.removeItem(
                       "dash_pwd"
                     );
@@ -2129,22 +1834,16 @@ export default function DashboardPage() {
                     setPassword(
                       ""
                     );
-
                   }}
                   className="mt-2 text-sm text-red-600 font-medium"
                 >
                   Sair do dashboard
                 </button>
-
               </div>
-
             </>
           )}
-
         </main>
-
       </div>
-
     </div>
   );
 }
