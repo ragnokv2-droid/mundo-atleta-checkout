@@ -44,7 +44,29 @@ function formatBRL(v: number) {
   });
 }
 
-function waLink(phone: string) {
+/*
+ * ============================================================
+ * WHATSAPP
+ * ============================================================
+ *
+ * Cria automaticamente a mensagem de acordo com o status
+ * do cliente.
+ *
+ * PIX gerado:
+ * - Nome do cliente
+ * - Valor do pedido
+ *
+ * Carrinho abandonado:
+ * - Nome do cliente
+ * - Link do checkout
+ */
+
+function waLink(
+  phone: string,
+  nome: string,
+  status: string,
+  valor: string
+) {
   const n = String(phone || "").replace(
     /\D/g,
     ""
@@ -56,7 +78,86 @@ function waLink(phone: string) {
     ? n
     : `55${n}`;
 
-  return `https://wa.me/${full}`;
+  // Usa apenas o primeiro nome para deixar
+  // a mensagem mais natural.
+  const nomeCliente =
+    String(nome || "")
+      .trim()
+      .split(" ")[0] || "cliente";
+
+  const valorPedido = valor
+    ? `R$ ${valor}`
+    : "R$ 0,00";
+
+  const statusNormalizado =
+    String(status || "").toLowerCase();
+
+  let mensagem = "";
+
+  /*
+   * ============================================================
+   * PIX GERADO
+   * ============================================================
+   */
+
+  if (
+    statusNormalizado ===
+    "aguardando_pix"
+  ) {
+    mensagem = `Olá *${nomeCliente}*! 😊
+
+*Seu pedido do Aparelho Abdominal AB Tomic foi reservado com sucesso!*
+
+🛍️ Resumo do pedido:
+* *Produto: Aparelho Abdominal AB Tomic*
+* Valor total: *${valorPedido}*
+
+Nos próximos instantes, você receberá o código Pix (copia e cola) para realizar o pagamento de forma rápida e segura.
+
+✅ Assim que o pagamento for confirmado, iniciaremos a separação do seu pedido para envio.
+
+Se tiver qualquer dúvida, é só responder esta mensagem. Estamos à disposição!`;
+  }
+
+  /*
+   * ============================================================
+   * CARRINHO ABANDONADO
+   * ============================================================
+   */
+
+  else if (
+    statusNormalizado.includes(
+      "abandonado"
+    )
+  ) {
+    mensagem = `Olá, *${nomeCliente}*! 😊
+
+Percebemos que você iniciou a compra do *Aparelho Abdominal AB TOMIC*, mas o pedido ainda não foi concluído.
+
+🛒 *Seu carrinho continua reservado por tempo limitado*, então você pode finalizar a compra em poucos segundos pelo link abaixo:
+
+https://mundo-atleta-checkout.vercel.app/
+
+Se precisar de qualquer ajuda, é só responder esta mensagem. Será um prazer atender você! 💪`;
+  }
+
+  /*
+   * ============================================================
+   * OUTROS STATUS
+   * ============================================================
+   */
+
+  else {
+    mensagem = `Olá, *${nomeCliente}*! 😊
+
+Aqui é da Mundo Atleta. Estamos entrando em contato sobre o seu pedido.
+
+Se precisar de qualquer ajuda, é só responder esta mensagem.`;
+  }
+
+  return `https://wa.me/${full}?text=${encodeURIComponent(
+    mensagem
+  )}`;
 }
 
 function LineChart() {
@@ -641,7 +742,10 @@ export default function DashboardPage() {
           {lead.telefone && (
             <a
               href={waLink(
-                lead.telefone
+                lead.telefone,
+                lead.nome,
+                lead.status,
+                lead.valor
               )}
               target="_blank"
               rel="noreferrer"
