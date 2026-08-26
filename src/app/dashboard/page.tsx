@@ -9,7 +9,12 @@ type Stats = {
   abandonados: number;
   ticketMedio: number;
   conversaoPix: number;
-  funil: { dados: number; entrega: number; pagamento: number; pix: number };
+  funil: {
+    dados: number;
+    entrega: number;
+    pagamento: number;
+    pix: number;
+  };
   totalLeads: number;
 };
 
@@ -25,7 +30,12 @@ type Lead = {
   frete: string;
 };
 
-type Tab = "dashboard" | "vendas" | "carrinhos" | "pix" | "config";
+type Tab =
+  | "dashboard"
+  | "vendas"
+  | "carrinhos"
+  | "pix"
+  | "config";
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", {
@@ -35,24 +45,41 @@ function formatBRL(v: number) {
 }
 
 function waLink(phone: string) {
-  const n = String(phone || "").replace(/\D/g, "");
+  const n = String(phone || "").replace(
+    /\D/g,
+    ""
+  );
+
   if (!n) return "#";
-  const full = n.startsWith("55") ? n : `55${n}`;
+
+  const full = n.startsWith("55")
+    ? n
+    : `55${n}`;
+
   return `https://wa.me/${full}`;
 }
 
 function LineChart() {
-  const points = [8, 12, 10, 15, 18, 14, 20, 22, 19, 25, 28, 24];
+  const points = [
+    8, 12, 10, 15, 18, 14,
+    20, 22, 19, 25, 28, 24,
+  ];
+
   const max = 30;
   const w = 280;
   const h = 100;
-  const step = w / (points.length - 1);
+  const step =
+    w / (points.length - 1);
 
   const path = points
     .map((p, i) => {
       const x = i * step;
-      const y = h - (p / max) * h;
-      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
+      const y =
+        h - (p / max) * h;
+
+      return `${
+        i === 0 ? "M" : "L"
+      } ${x} ${y}`;
     })
     .join(" ");
 
@@ -63,9 +90,24 @@ function LineChart() {
       preserveAspectRatio="none"
     >
       <defs>
-        <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#0d9488" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#0d9488" stopOpacity="0" />
+        <linearGradient
+          id="area"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop
+            offset="0%"
+            stopColor="#0d9488"
+            stopOpacity="0.25"
+          />
+
+          <stop
+            offset="100%"
+            stopColor="#0d9488"
+            stopOpacity="0"
+          />
         </linearGradient>
       </defs>
 
@@ -130,7 +172,9 @@ function Funnel({
         >
           <div
             className={`${s.color} text-white text-xs font-medium py-2.5 px-3 rounded-lg text-center shadow-sm`}
-            style={{ width: s.width }}
+            style={{
+              width: s.width,
+            }}
           >
             {s.label} · {s.value}%
           </div>
@@ -140,65 +184,208 @@ function Funnel({
   );
 }
 
-function statusBadge(status: string) {
-  const s = status.toLowerCase();
+function statusBadge(
+  status: string
+) {
+  const s =
+    status.toLowerCase();
 
   if (s === "pago") {
     return "bg-green-50 text-green-700";
   }
 
-  if (s === "aguardando_pix") {
+  if (
+    s === "aguardando_pix"
+  ) {
     return "bg-blue-50 text-blue-700";
   }
 
-  if (s.includes("abandonado")) {
+  if (
+    s.includes("abandonado")
+  ) {
     return "bg-amber-50 text-amber-700";
   }
 
   return "bg-gray-100 text-gray-600";
 }
 
-export default function DashboardPage() {
-  const [password, setPassword] = useState("");
-  const [authed, setAuthed] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentes, setRecentes] = useState<Lead[]>([]);
-  const [tab, setTab] = useState<Tab>("dashboard");
-  const [menuOpen, setMenuOpen] = useState(false);
+function formatDateLabel(
+  date: string
+) {
+  if (!date) return "Todos os períodos";
 
-  async function load(pwd: string) {
+  const parts =
+    date.split("-");
+
+  if (parts.length !== 3) {
+    return date;
+  }
+
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+export default function DashboardPage() {
+  const [password, setPassword] =
+    useState("");
+
+  const [authed, setAuthed] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [stats, setStats] =
+    useState<Stats | null>(null);
+
+  const [recentes, setRecentes] =
+    useState<Lead[]>([]);
+
+  const [tab, setTab] =
+    useState<Tab>("dashboard");
+
+  const [menuOpen, setMenuOpen] =
+    useState(false);
+
+  /*
+   * ============================================================
+   * FILTRO DE DATA
+   * ============================================================
+   */
+
+  const [dateFrom, setDateFrom] =
+    useState("");
+
+  const [dateTo, setDateTo] =
+    useState("");
+
+  const [appliedDateFrom, setAppliedDateFrom] =
+    useState("");
+
+  const [appliedDateTo, setAppliedDateTo] =
+    useState("");
+
+  async function load(
+    pwd: string,
+    from = appliedDateFrom,
+    to = appliedDateTo
+  ) {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch(
-        `/api/dashboard?password=${encodeURIComponent(pwd)}`
+      const params =
+        new URLSearchParams();
+
+      params.set(
+        "password",
+        pwd
       );
 
-      const json = await res.json();
+      if (from) {
+        params.set(
+          "dateFrom",
+          from
+        );
+      }
+
+      if (to) {
+        params.set(
+          "dateTo",
+          to
+        );
+      }
+
+      const res =
+        await fetch(
+          `/api/dashboard?${params.toString()}`
+        );
+
+      const json =
+        await res.json();
 
       if (!res.ok) {
-        setError(json.error || "Senha incorreta");
+        setError(
+          json.error ||
+            "Senha incorreta"
+        );
+
         setAuthed(false);
         return;
       }
 
-      setStats(json.stats);
-      setRecentes(json.recentes || []);
+      setStats(
+        json.stats
+      );
+
+      setRecentes(
+        json.recentes || []
+      );
+
       setAuthed(true);
 
-      sessionStorage.setItem("dash_pwd", pwd);
+      sessionStorage.setItem(
+        "dash_pwd",
+        pwd
+      );
     } catch {
-      setError("Erro de conexão");
+      setError(
+        "Erro de conexão"
+      );
     } finally {
       setLoading(false);
     }
   }
 
+  function aplicarFiltro() {
+    if (
+      dateFrom &&
+      dateTo &&
+      dateFrom > dateTo
+    ) {
+      alert(
+        "A data inicial não pode ser maior que a data final."
+      );
+
+      return;
+    }
+
+    setAppliedDateFrom(
+      dateFrom
+    );
+
+    setAppliedDateTo(
+      dateTo
+    );
+
+    load(
+      password,
+      dateFrom,
+      dateTo
+    );
+  }
+
+  function limparFiltro() {
+    setDateFrom("");
+    setDateTo("");
+
+    setAppliedDateFrom("");
+    setAppliedDateTo("");
+
+    load(
+      password,
+      "",
+      ""
+    );
+  }
+
   useEffect(() => {
-    const saved = sessionStorage.getItem("dash_pwd");
+    const saved =
+      sessionStorage.getItem(
+        "dash_pwd"
+      );
 
     if (saved) {
       setPassword(saved);
@@ -206,84 +393,163 @@ export default function DashboardPage() {
     }
   }, []);
 
-  /**
-   * Marca o pedido como pago.
-   *
-   * IMPORTANTE:
-   * O evento Purchase do Meta somente é disparado
-   * DEPOIS que a API confirmar que o pedido foi marcado como pago.
+  /*
+   * ============================================================
+   * MARCAR COMO PAGO
+   * ============================================================
    */
-  async function markPaid(lead: Lead) {
-    if (!confirm("Marcar este pedido como PAGO?")) return;
+
+  async function markPaid(
+    lead: Lead
+  ) {
+    if (
+      !confirm(
+        "Marcar este pedido como PAGO?"
+      )
+    ) {
+      return;
+    }
 
     try {
-      const res = await fetch("/api/dashboard", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          password,
-          row: lead.row,
-        }),
-      });
+      const res =
+        await fetch(
+          "/api/dashboard",
+          {
+            method: "POST",
 
-      const json = await res.json();
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body: JSON.stringify({
+              password,
+              row: lead.row,
+            }),
+          }
+        );
+
+      const json =
+        await res.json();
 
       if (!res.ok) {
-        alert(json.error || "Erro ao marcar como pago");
+        alert(
+          json.error ||
+            "Erro ao marcar como pago"
+        );
+
         return;
       }
 
-      /**
-       * Só dispara Purchase depois da confirmação
-       * de que a API marcou o pedido como pago.
+      /*
+       * Purchase só acontece aqui,
+       * depois que o backend confirmou
+       * que o pedido foi marcado como pago.
        */
-      if (
-        typeof window !== "undefined" &&
-        typeof (window as any).fbq === "function"
-      ) {
-        const valor = parseFloat(
-          String(lead.valor || "0")
-            .replace("R$", "")
-            .replace(/\./g, "")
-            .replace(",", ".")
-            .trim()
-        );
 
-        (window as any).fbq("track", "Purchase", {
-          value: isNaN(valor) ? 0 : valor,
-          currency: "BRL",
-          content_name: "Mundo Atleta",
-          content_type: "product",
-        });
+      if (
+        typeof window !==
+          "undefined" &&
+        typeof (
+          window as any
+        ).fbq === "function"
+      ) {
+        const valor =
+          parseFloat(
+            String(
+              lead.valor ||
+                "0"
+            )
+              .replace(
+                "R$",
+                ""
+              )
+              .replace(
+                /\./g,
+                ""
+              )
+              .replace(
+                ",",
+                "."
+              )
+              .trim()
+          );
+
+        (
+          window as any
+        ).fbq(
+          "track",
+          "Purchase",
+          {
+            value: isNaN(valor)
+              ? 0
+              : valor,
+
+            currency: "BRL",
+
+            content_name:
+              "Mundo Atleta",
+
+            content_type:
+              "product",
+          }
+        );
 
         console.log(
           "Meta Pixel Purchase disparado:",
-          isNaN(valor) ? 0 : valor
+          isNaN(valor)
+            ? 0
+            : valor
         );
       }
 
-      await load(password);
+      await load(
+        password
+      );
     } catch (error) {
-      console.error(error);
-      alert("Erro de conexão ao marcar como pago");
+      console.error(
+        error
+      );
+
+      alert(
+        "Erro de conexão ao marcar como pago"
+      );
     }
   }
 
-  const vendas = recentes.filter(
-    (l) => String(l.status).toLowerCase() === "pago"
-  );
+  const vendas =
+    recentes.filter(
+      (l) =>
+        String(
+          l.status
+        ).toLowerCase() ===
+        "pago"
+    );
 
-  const carrinhos = recentes.filter((l) =>
-    String(l.status).toLowerCase().includes("abandonado")
-  );
+  const carrinhos =
+    recentes.filter(
+      (l) =>
+        String(
+          l.status
+        )
+          .toLowerCase()
+          .includes(
+            "abandonado"
+          )
+    );
 
-  const pixList = recentes.filter((l) =>
-    ["aguardando_pix", "pago"].includes(
-      String(l.status).toLowerCase()
-    )
-  );
+  const pixList =
+    recentes.filter(
+      (l) =>
+        [
+          "aguardando_pix",
+          "pago",
+        ].includes(
+          String(
+            l.status
+          ).toLowerCase()
+        )
+    );
 
   const menu: {
     id: Tab;
@@ -324,9 +590,16 @@ export default function DashboardPage() {
     lead: Lead;
     showPaidBtn?: boolean;
   }) {
-    const status = String(lead.status || "").toLowerCase();
+    const status =
+      String(
+        lead.status || ""
+      ).toLowerCase();
 
-    if (!lead.nome && !lead.telefone && !lead.email) {
+    if (
+      !lead.nome &&
+      !lead.telefone &&
+      !lead.email
+    ) {
       return null;
     }
 
@@ -334,13 +607,24 @@ export default function DashboardPage() {
       <div className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3 border-b border-gray-50 last:border-0">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900 truncate">
-            {lead.nome || "Sem nome"}
+            {lead.nome ||
+              "Sem nome"}
           </p>
 
           <p className="text-xs text-gray-500 mt-0.5">
-            {lead.data ? `${lead.data} · ` : ""}
-            {lead.telefone || "—"} · R$ {lead.valor || "0"}
-            {lead.frete ? ` · ${lead.frete}` : ""}
+            {lead.data
+              ? `${lead.data} · `
+              : ""}
+
+            {lead.telefone ||
+              "—"}{" "}
+            · R${" "}
+            {lead.valor ||
+              "0"}
+
+            {lead.frete
+              ? ` · ${lead.frete}`
+              : ""}
           </p>
 
           <span
@@ -348,14 +632,17 @@ export default function DashboardPage() {
               status
             )}`}
           >
-            {lead.status || "—"}
+            {lead.status ||
+              "—"}
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           {lead.telefone && (
             <a
-              href={waLink(lead.telefone)}
+              href={waLink(
+                lead.telefone
+              )}
               target="_blank"
               rel="noreferrer"
               className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-700 hover:bg-green-100"
@@ -364,14 +651,20 @@ export default function DashboardPage() {
             </a>
           )}
 
-          {showPaidBtn && status === "aguardando_pix" && (
-            <button
-              onClick={() => markPaid(lead)}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-600 text-white hover:bg-teal-700"
-            >
-              Marcar pago
-            </button>
-          )}
+          {showPaidBtn &&
+            status ===
+              "aguardando_pix" && (
+              <button
+                onClick={() =>
+                  markPaid(
+                    lead
+                  )
+                }
+                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+              >
+                Marcar pago
+              </button>
+            )}
         </div>
       </div>
     );
@@ -401,9 +694,15 @@ export default function DashboardPage() {
             type="password"
             placeholder="Senha de acesso"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) =>
+              setPassword(
+                e.target.value
+              )
+            }
             onKeyDown={(e) =>
-              e.key === "Enter" && load(password)
+              e.key ===
+                "Enter" &&
+              load(password)
             }
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
           />
@@ -415,11 +714,18 @@ export default function DashboardPage() {
           )}
 
           <button
-            onClick={() => load(password)}
-            disabled={loading || !password}
+            onClick={() =>
+              load(password)
+            }
+            disabled={
+              loading ||
+              !password
+            }
             className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {loading
+              ? "Entrando..."
+              : "Entrar"}
           </button>
         </div>
       </div>
@@ -450,7 +756,9 @@ export default function DashboardPage() {
           {menu.map((m) => (
             <button
               key={m.id}
-              onClick={() => setTab(m.id)}
+              onClick={() =>
+                setTab(m.id)
+              }
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 tab === m.id
                   ? "bg-teal-50 text-teal-800"
@@ -473,7 +781,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <button
               className="md:hidden text-gray-600 p-1.5 rounded-lg hover:bg-gray-50"
-              onClick={() => setMenuOpen(!menuOpen)}
+              onClick={() =>
+                setMenuOpen(
+                  !menuOpen
+                )
+              }
             >
               ☰
             </button>
@@ -484,12 +796,25 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
-              Hoje
+            <span className="hidden sm:block text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
+              {appliedDateFrom ||
+              appliedDateTo
+                ? `${formatDateLabel(
+                    appliedDateFrom
+                  )} ${
+                    appliedDateTo
+                      ? `até ${formatDateLabel(
+                          appliedDateTo
+                        )}`
+                      : ""
+                  }`
+                : "Todos os períodos"}
             </span>
 
             <button
-              onClick={() => load(password)}
+              onClick={() =>
+                load(password)
+              }
               className="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg"
             >
               Atualizar
@@ -505,7 +830,9 @@ export default function DashboardPage() {
                 key={m.id}
                 onClick={() => {
                   setTab(m.id);
-                  setMenuOpen(false);
+                  setMenuOpen(
+                    false
+                  );
                 }}
                 className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium ${
                   tab === m.id
@@ -520,8 +847,97 @@ export default function DashboardPage() {
         )}
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
-          {/* ===== DASHBOARD ===== */}
-          {tab === "dashboard" && (
+          {/* ==================================================== */}
+          {/* FILTRO DE CALENDÁRIO */}
+          {/* ==================================================== */}
+
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-5 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  Data inicial
+                </label>
+
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) =>
+                    setDateFrom(
+                      e.target.value
+                    )
+                  }
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                />
+              </div>
+
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  Data final
+                </label>
+
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) =>
+                    setDateTo(
+                      e.target.value
+                    )
+                  }
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                />
+              </div>
+
+              <button
+                onClick={
+                  aplicarFiltro
+                }
+                disabled={loading}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {loading
+                  ? "Carregando..."
+                  : "Aplicar filtro"}
+              </button>
+
+              <button
+                onClick={
+                  limparFiltro
+                }
+                disabled={
+                  loading ||
+                  (!dateFrom &&
+                    !dateTo &&
+                    !appliedDateFrom &&
+                    !appliedDateTo)
+                }
+                className="bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                Limpar
+              </button>
+            </div>
+
+            {(appliedDateFrom ||
+              appliedDateTo) && (
+              <p className="text-xs text-teal-700 mt-3">
+                Filtro ativo:{" "}
+                {formatDateLabel(
+                  appliedDateFrom
+                )}{" "}
+                {appliedDateTo
+                  ? `até ${formatDateLabel(
+                      appliedDateTo
+                    )}`
+                  : ""}
+              </p>
+            )}
+          </div>
+
+          {/* ==================================================== */}
+          {/* DASHBOARD */}
+          {/* ==================================================== */}
+
+          {tab ===
+            "dashboard" && (
             <>
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900">
@@ -539,12 +955,17 @@ export default function DashboardPage() {
                 </p>
 
                 <p className="text-3xl md:text-4xl font-bold text-teal-700">
-                  {formatBRL(stats?.volume || 0)}
+                  {formatBRL(
+                    stats?.volume ||
+                      0
+                  )}
                 </p>
 
                 <p className="text-xs text-gray-400 mt-2">
                   Apenas pedidos marcados como pago ·{" "}
-                  {stats?.pixPagos || 0} venda(s)
+                  {stats?.pixPagos ||
+                    0}{" "}
+                  venda(s)
                 </p>
               </div>
 
@@ -555,7 +976,11 @@ export default function DashboardPage() {
                   </p>
 
                   {stats && (
-                    <Funnel funil={stats.funil} />
+                    <Funnel
+                      funil={
+                        stats.funil
+                      }
+                    />
                   )}
                 </div>
 
@@ -565,12 +990,18 @@ export default function DashboardPage() {
                   </p>
 
                   <p className="text-3xl font-bold text-teal-700">
-                    {stats?.conversaoPix ?? 0}%
+                    {stats?.conversaoPix ??
+                      0}
+                    %
                   </p>
 
                   <p className="text-[11px] text-gray-400 mb-3">
-                    {stats?.pixPagos ?? 0} pagos de{" "}
-                    {stats?.pixGerados ?? 0} gerados
+                    {stats?.pixPagos ||
+                      0}{" "}
+                    pagos de{" "}
+                    {stats?.pixGerados ||
+                      0}{" "}
+                    gerados
                   </p>
 
                   <LineChart />
@@ -580,32 +1011,46 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   {
-                    label: "PIX gerados",
-                    value: String(
-                      stats?.pixGerados ?? 0
-                    ),
+                    label:
+                      "PIX gerados",
+                    value:
+                      String(
+                        stats?.pixGerados ??
+                          0
+                      ),
                   },
                   {
-                    label: "PIX pagos",
-                    value: String(
-                      stats?.pixPagos ?? 0
-                    ),
+                    label:
+                      "PIX pagos",
+                    value:
+                      String(
+                        stats?.pixPagos ??
+                          0
+                      ),
                   },
                   {
-                    label: "Carrinhos abandonados",
-                    value: String(
-                      stats?.abandonados ?? 0
-                    ),
+                    label:
+                      "Carrinhos abandonados",
+                    value:
+                      String(
+                        stats?.abandonados ??
+                          0
+                      ),
                   },
                   {
-                    label: "Ticket médio",
-                    value: formatBRL(
-                      stats?.ticketMedio || 0
-                    ),
+                    label:
+                      "Ticket médio",
+                    value:
+                      formatBRL(
+                        stats?.ticketMedio ||
+                          0
+                      ),
                   },
                 ].map((k) => (
                   <div
-                    key={k.label}
+                    key={
+                      k.label
+                    }
                     className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
                   >
                     <p className="text-[11px] text-gray-500">
@@ -627,31 +1072,51 @@ export default function DashboardPage() {
                 </div>
 
                 {recentes.filter(
-                  (l) => l.nome || l.telefone
-                ).length === 0 ? (
+                  (l) =>
+                    l.nome ||
+                    l.telefone
+                ).length ===
+                0 ? (
                   <p className="p-6 text-sm text-gray-400 text-center">
-                    Nenhum lead ainda
+                    Nenhum lead neste período
                   </p>
                 ) : (
                   recentes
                     .filter(
-                      (l) => l.nome || l.telefone
+                      (l) =>
+                        l.nome ||
+                        l.telefone
                     )
-                    .slice(0, 15)
-                    .map((lead) => (
-                      <LeadRow
-                        key={lead.row}
-                        lead={lead}
-                        showPaidBtn
-                      />
-                    ))
+                    .slice(
+                      0,
+                      15
+                    )
+                    .map(
+                      (
+                        lead
+                      ) => (
+                        <LeadRow
+                          key={
+                            lead.row
+                          }
+                          lead={
+                            lead
+                          }
+                          showPaidBtn
+                        />
+                      )
+                    )
                 )}
               </div>
             </>
           )}
 
-          {/* ===== VENDAS ===== */}
-          {tab === "vendas" && (
+          {/* ==================================================== */}
+          {/* VENDAS */}
+          {/* ==================================================== */}
+
+          {tab ===
+            "vendas" && (
             <>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
@@ -660,29 +1125,45 @@ export default function DashboardPage() {
 
                 <p className="text-sm text-gray-500">
                   Pedidos marcados como pago ·{" "}
-                  {formatBRL(stats?.volume || 0)}
+                  {formatBRL(
+                    stats?.volume ||
+                      0
+                  )}
                 </p>
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {vendas.length === 0 ? (
+                {vendas.length ===
+                0 ? (
                   <p className="p-6 text-sm text-gray-400 text-center">
-                    Nenhuma venda marcada ainda
+                    Nenhuma venda neste período
                   </p>
                 ) : (
-                  vendas.map((lead) => (
-                    <LeadRow
-                      key={lead.row}
-                      lead={lead}
-                    />
-                  ))
+                  vendas.map(
+                    (
+                      lead
+                    ) => (
+                      <LeadRow
+                        key={
+                          lead.row
+                        }
+                        lead={
+                          lead
+                        }
+                      />
+                    )
+                  )
                 )}
               </div>
             </>
           )}
 
-          {/* ===== CARRINHOS ===== */}
-          {tab === "carrinhos" && (
+          {/* ==================================================== */}
+          {/* CARRINHOS */}
+          {/* ==================================================== */}
+
+          {tab ===
+            "carrinhos" && (
             <>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
@@ -691,29 +1172,44 @@ export default function DashboardPage() {
 
                 <p className="text-sm text-gray-500">
                   Leads que não chegaram a pagar ·{" "}
-                  {carrinhos.length}
+                  {
+                    carrinhos.length
+                  }
                 </p>
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {carrinhos.length === 0 ? (
+                {carrinhos.length ===
+                0 ? (
                   <p className="p-6 text-sm text-gray-400 text-center">
-                    Nenhum carrinho abandonado
+                    Nenhum carrinho abandonado neste período
                   </p>
                 ) : (
-                  carrinhos.map((lead) => (
-                    <LeadRow
-                      key={lead.row}
-                      lead={lead}
-                    />
-                  ))
+                  carrinhos.map(
+                    (
+                      lead
+                    ) => (
+                      <LeadRow
+                        key={
+                          lead.row
+                        }
+                        lead={
+                          lead
+                        }
+                      />
+                    )
+                  )
                 )}
               </div>
             </>
           )}
 
-          {/* ===== PIX ===== */}
-          {tab === "pix" && (
+          {/* ==================================================== */}
+          {/* PIX */}
+          {/* ==================================================== */}
+
+          {tab ===
+            "pix" && (
             <>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
@@ -726,25 +1222,38 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {pixList.length === 0 ? (
+                {pixList.length ===
+                0 ? (
                   <p className="p-6 text-sm text-gray-400 text-center">
-                    Nenhum PIX gerado ainda
+                    Nenhum PIX neste período
                   </p>
                 ) : (
-                  pixList.map((lead) => (
-                    <LeadRow
-                      key={lead.row}
-                      lead={lead}
-                      showPaidBtn
-                    />
-                  ))
+                  pixList.map(
+                    (
+                      lead
+                    ) => (
+                      <LeadRow
+                        key={
+                          lead.row
+                        }
+                        lead={
+                          lead
+                        }
+                        showPaidBtn
+                      />
+                    )
+                  )
                 )}
               </div>
             </>
           )}
 
-          {/* ===== CONFIG ===== */}
-          {tab === "config" && (
+          {/* ==================================================== */}
+          {/* CONFIGURAÇÕES */}
+          {/* ==================================================== */}
+
+          {tab ===
+            "config" && (
             <>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
@@ -758,7 +1267,10 @@ export default function DashboardPage() {
 
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3 text-sm text-gray-600">
                 <p>
-                  <strong>Senha:</strong> definida em{" "}
+                  <strong>
+                    Senha:
+                  </strong>{" "}
+                  definida em{" "}
                   <code className="text-xs bg-gray-50 px-1 rounded">
                     DASHBOARD_PASSWORD
                   </code>{" "}
@@ -766,28 +1278,42 @@ export default function DashboardPage() {
                 </p>
 
                 <p>
-                  <strong>Dados:</strong> vêm da planilha
-                  Google (Apps Script)
+                  <strong>
+                    Dados:
+                  </strong>{" "}
+                  vêm da planilha Google (Apps Script)
                 </p>
 
                 <p>
-                  <strong>Marcar pago:</strong> use o botão
-                  na lista quando o PIX cair no extrato do
-                  banco
+                  <strong>
+                    Marcar pago:
+                  </strong>{" "}
+                  use o botão na lista quando o PIX cair no extrato do banco
                 </p>
 
                 <p>
-                  <strong>Meta Ads:</strong> o evento{" "}
+                  <strong>
+                    Meta Ads:
+                  </strong>{" "}
+                  o evento{" "}
                   <code className="text-xs bg-gray-50 px-1 rounded">
                     Purchase
                   </code>{" "}
-                  é enviado somente após marcar o pedido
-                  como pago.
+                  é enviado somente após marcar o pedido como pago.
                 </p>
 
                 <p>
-                  <strong>Fuso horário:</strong> configure o
-                  Apps Script para América/São Paulo
+                  <strong>
+                    Filtro:
+                  </strong>{" "}
+                  escolha uma data inicial e final para analisar apenas aquele período.
+                </p>
+
+                <p>
+                  <strong>
+                    Fuso horário:
+                  </strong>{" "}
+                  configure o Apps Script para América/São Paulo
                 </p>
 
                 <button
@@ -795,8 +1321,14 @@ export default function DashboardPage() {
                     sessionStorage.removeItem(
                       "dash_pwd"
                     );
-                    setAuthed(false);
-                    setPassword("");
+
+                    setAuthed(
+                      false
+                    );
+
+                    setPassword(
+                      ""
+                    );
                   }}
                   className="mt-2 text-sm text-red-600 font-medium"
                 >
