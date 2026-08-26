@@ -13,15 +13,30 @@ type Lead = {
   etapa?: string | number;
 };
 
+/*
+ * ============================================================
+ * NORMALIZAR
+ * ============================================================
+ */
+
 function normalizar(valor: unknown) {
   return String(valor || "")
     .trim()
     .toLowerCase();
 }
 
+/*
+ * ============================================================
+ * CHAVE DO CLIENTE
+ * ============================================================
+ */
+
 function chaveCliente(r: Lead) {
   const email = normalizar(r.email);
-  const telefone = normalizar(r.telefone).replace(/\D/g, "");
+
+  const telefone = normalizar(
+    r.telefone
+  ).replace(/\D/g, "");
 
   if (email && telefone) {
     return `${email}|${telefone}`;
@@ -38,29 +53,40 @@ function chaveCliente(r: Lead) {
   return `row:${r._row || Math.random()}`;
 }
 
+/*
+ * ============================================================
+ * VALOR NUMÉRICO
+ * ============================================================
+ */
+
 function valorNumerico(valor: unknown) {
   const texto = String(valor || "0")
     .replace("R$", "")
     .replace(/\s/g, "")
     .trim();
 
+  let numero = 0;
+
   /*
-   * Trata valores brasileiros:
+   * Exemplos:
    *
    * 119,90
    * 1.119,90
    * 119.90
    */
 
-  let numero = 0;
-
-  if (texto.includes(",") && texto.includes(".")) {
+  if (
+    texto.includes(",") &&
+    texto.includes(".")
+  ) {
     numero = parseFloat(
       texto
         .replace(/\./g, "")
         .replace(",", ".")
     );
-  } else if (texto.includes(",")) {
+  } else if (
+    texto.includes(",")
+  ) {
     numero = parseFloat(
       texto.replace(",", ".")
     );
@@ -68,7 +94,9 @@ function valorNumerico(valor: unknown) {
     numero = parseFloat(texto);
   }
 
-  return Number.isFinite(numero) ? numero : 0;
+  return Number.isFinite(numero)
+    ? numero
+    : 0;
 }
 
 /*
@@ -79,41 +107,57 @@ function valorNumerico(valor: unknown) {
  * Aceita:
  *
  * 25/08/2026
+ * 25/08/2026 20:30
  * 25/08/2026 20:30:00
+ *
  * 2026-08-25
- * 2026-08-25T20:30:00
+ * 2026-08-25 20:30
  * 2026-08-25 20:30:00
  *
- * Sempre cria a data no horário local do servidor.
+ * 2026-08-25T20:30:00
+ *
+ * A data é sempre construída
+ * no horário local do servidor.
  */
 
-function parseData(valor: unknown): Date | null {
+function parseData(
+  valor: unknown
+): Date | null {
   if (!valor) {
     return null;
   }
 
-  const texto = String(valor).trim();
+  const texto =
+    String(valor).trim();
 
   if (!texto) {
     return null;
   }
 
   /*
+   * ==========================================================
    * DD/MM/YYYY
+   * ==========================================================
    */
 
   const br = texto.match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
   );
 
   if (br) {
     const dia = Number(br[1]);
-    const mes = Number(br[2]) - 1;
+    const mes =
+      Number(br[2]) - 1;
     const ano = Number(br[3]);
 
-    const hora = Number(br[4] || 0);
-    const minuto = Number(br[5] || 0);
-    const segundo = Number(br[6] || 0);
+    const hora =
+      Number(br[4] || 0);
+
+    const minuto =
+      Number(br[5] || 0);
+
+    const segundo =
+      Number(br[6] || 0);
 
     const data = new Date(
       ano,
@@ -125,27 +169,45 @@ function parseData(valor: unknown): Date | null {
       0
     );
 
-    return Number.isNaN(data.getTime())
-      ? null
-      : data;
+    if (
+      !Number.isNaN(
+        data.getTime()
+      )
+    ) {
+      return data;
+    }
+
+    return null;
   }
 
   /*
+   * ==========================================================
    * YYYY-MM-DD
+   * ==========================================================
    */
 
   const iso = texto.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
   );
 
   if (iso) {
-    const ano = Number(iso[1]);
-    const mes = Number(iso[2]) - 1;
-    const dia = Number(iso[3]);
+    const ano =
+      Number(iso[1]);
 
-    const hora = Number(iso[4] || 0);
-    const minuto = Number(iso[5] || 0);
-    const segundo = Number(iso[6] || 0);
+    const mes =
+      Number(iso[2]) - 1;
+
+    const dia =
+      Number(iso[3]);
+
+    const hora =
+      Number(iso[4] || 0);
+
+    const minuto =
+      Number(iso[5] || 0);
+
+    const segundo =
+      Number(iso[6] || 0);
 
     const data = new Date(
       ano,
@@ -157,25 +219,40 @@ function parseData(valor: unknown): Date | null {
       0
     );
 
-    return Number.isNaN(data.getTime())
-      ? null
-      : data;
+    if (
+      !Number.isNaN(
+        data.getTime()
+      )
+    ) {
+      return data;
+    }
+
+    return null;
   }
 
   /*
-   * Última tentativa para outros formatos.
+   * ==========================================================
+   * ÚLTIMA TENTATIVA
+   * ==========================================================
    */
 
-  const tentativa = new Date(texto);
+  const tentativa =
+    new Date(texto);
 
-  return Number.isNaN(tentativa.getTime())
-    ? null
-    : tentativa;
+  if (
+    !Number.isNaN(
+      tentativa.getTime()
+    )
+  ) {
+    return tentativa;
+  }
+
+  return null;
 }
 
 /*
  * ============================================================
- * DATA INICIAL DO FILTRO
+ * CRIAR DATA INICIAL
  * ============================================================
  */
 
@@ -186,15 +263,23 @@ function dataInicioFiltro(
     return null;
   }
 
-  const partes = valor.split("-");
+  const partes =
+    valor.split("-");
 
-  if (partes.length !== 3) {
+  if (
+    partes.length !== 3
+  ) {
     return null;
   }
 
-  const ano = Number(partes[0]);
-  const mes = Number(partes[1]) - 1;
-  const dia = Number(partes[2]);
+  const ano =
+    Number(partes[0]);
+
+  const mes =
+    Number(partes[1]) - 1;
+
+  const dia =
+    Number(partes[2]);
 
   if (
     !Number.isInteger(ano) ||
@@ -214,17 +299,17 @@ function dataInicioFiltro(
     0
   );
 
-  return Number.isNaN(data.getTime())
+  return Number.isNaN(
+    data.getTime()
+  )
     ? null
     : data;
 }
 
 /*
  * ============================================================
- * DATA FINAL DO FILTRO
+ * CRIAR DATA FINAL
  * ============================================================
- *
- * Vai até 23:59:59.999 do dia selecionado.
  */
 
 function dataFimFiltro(
@@ -234,15 +319,23 @@ function dataFimFiltro(
     return null;
   }
 
-  const partes = valor.split("-");
+  const partes =
+    valor.split("-");
 
-  if (partes.length !== 3) {
+  if (
+    partes.length !== 3
+  ) {
     return null;
   }
 
-  const ano = Number(partes[0]);
-  const mes = Number(partes[1]) - 1;
-  const dia = Number(partes[2]);
+  const ano =
+    Number(partes[0]);
+
+  const mes =
+    Number(partes[1]) - 1;
+
+  const dia =
+    Number(partes[2]);
 
   if (
     !Number.isInteger(ano) ||
@@ -251,6 +344,13 @@ function dataFimFiltro(
   ) {
     return null;
   }
+
+  /*
+   * IMPORTANTE:
+   *
+   * O filtro termina às 23:59:59.999
+   * do dia selecionado.
+   */
 
   const data = new Date(
     ano,
@@ -262,14 +362,88 @@ function dataFimFiltro(
     999
   );
 
-  return Number.isNaN(data.getTime())
+  return Number.isNaN(
+    data.getTime()
+  )
     ? null
     : data;
 }
 
+/*
+ * ============================================================
+ * VERIFICAR SE REGISTRO ESTÁ NO PERÍODO
+ * ============================================================
+ */
+
+function registroDentroDoPeriodo(
+  row: Lead,
+  inicio: Date | null,
+  fim: Date | null
+) {
+  /*
+   * Se não existe filtro,
+   * aceita tudo.
+   */
+
+  if (!inicio && !fim) {
+    return true;
+  }
+
+  const data =
+    parseData(row.data);
+
+  /*
+   * Se existe filtro mas a
+   * data do registro não pode
+   * ser interpretada, não entra.
+   */
+
+  if (!data) {
+    return false;
+  }
+
+  /*
+   * Antes da data inicial.
+   */
+
+  if (
+    inicio &&
+    data.getTime() <
+      inicio.getTime()
+  ) {
+    return false;
+  }
+
+  /*
+   * Depois da data final.
+   */
+
+  if (
+    fim &&
+    data.getTime() >
+      fim.getTime()
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/*
+ * ============================================================
+ * GET
+ * ============================================================
+ */
+
 export async function GET(
   req: NextRequest
 ) {
+  /*
+   * ==========================================================
+   * SENHA
+   * ==========================================================
+   */
+
   const password =
     req.nextUrl.searchParams.get(
       "password"
@@ -279,16 +453,25 @@ export async function GET(
     process.env.DASHBOARD_PASSWORD ||
     "mundoatleta";
 
-  if (password !== expected) {
+  if (
+    password !== expected
+  ) {
     return NextResponse.json(
       {
-        error: "Não autorizado",
+        error:
+          "Não autorizado",
       },
       {
         status: 401,
       }
     );
   }
+
+  /*
+   * ==========================================================
+   * WEBHOOK
+   * ==========================================================
+   */
 
   const webhook =
     process.env.LEADS_WEBHOOK_URL;
@@ -306,16 +489,14 @@ export async function GET(
   }
 
   /*
-   * ============================================================
-   * RECEBER FILTRO DO FRONTEND
-   * ============================================================
+   * ==========================================================
+   * FILTRO
+   * ==========================================================
    *
-   * O page.tsx envia:
+   * O page.tsx envia exatamente:
    *
    * dateFrom
    * dateTo
-   *
-   * Portanto precisamos ler exatamente esses nomes.
    */
 
   const dateFrom =
@@ -329,24 +510,30 @@ export async function GET(
     );
 
   const inicioFiltro =
-    dataInicioFiltro(dateFrom);
+    dataInicioFiltro(
+      dateFrom
+    );
 
   const fimFiltro =
-    dataFimFiltro(dateTo);
+    dataFimFiltro(
+      dateTo
+    );
 
   try {
     /*
-     * ============================================================
-     * BUSCAR DADOS DA PLANILHA
-     * ============================================================
+     * ==========================================================
+     * BUSCAR PLANILHA
+     * ==========================================================
      */
 
-    const res = await fetch(
-      webhook,
-      {
-        cache: "no-store",
-      }
-    );
+    const res =
+      await fetch(
+        webhook,
+        {
+          cache:
+            "no-store",
+        }
+      );
 
     if (!res.ok) {
       return NextResponse.json(
@@ -378,23 +565,57 @@ export async function GET(
       );
     }
 
+    /*
+     * ==========================================================
+     * TODOS OS REGISTROS
+     * ==========================================================
+     */
+
     const rows: Lead[] =
-      Array.isArray(json.data)
+      Array.isArray(
+        json.data
+      )
         ? json.data.filter(
             (r: Lead) =>
               normalizar(
                 r.nome
-              ) !== "nome" &&
+              ) !==
+                "nome" &&
               normalizar(
                 r.email
-              ) !== "email"
+              ) !==
+                "email"
           )
         : [];
 
     /*
-     * ============================================================
+     * ==========================================================
+     * AQUI ESTÁ A CORREÇÃO PRINCIPAL
+     * ==========================================================
+     *
+     * PRIMEIRO filtramos os registros pela data.
+     *
+     * SOMENTE DEPOIS agrupamos os clientes.
+     *
+     * Isso evita que um registro mais recente
+     * de um cliente substitua um registro antigo
+     * que deveria aparecer no período selecionado.
+     */
+
+    let rowsFiltradas =
+      rows.filter(
+        (row) =>
+          registroDentroDoPeriodo(
+            row,
+            inicioFiltro,
+            fimFiltro
+          )
+      );
+
+    /*
+     * ==========================================================
      * AGRUPAR CLIENTES
-     * ============================================================
+     * ==========================================================
      */
 
     const clientesMap =
@@ -403,7 +624,9 @@ export async function GET(
         Lead
       >();
 
-    for (const row of rows) {
+    for (
+      const row of rowsFiltradas
+    ) {
       const chave =
         chaveCliente(row);
 
@@ -411,6 +634,10 @@ export async function GET(
         clientesMap.get(
           chave
         );
+
+      /*
+       * Primeiro registro
+       */
 
       if (!existente) {
         clientesMap.set(
@@ -420,6 +647,13 @@ export async function GET(
 
         continue;
       }
+
+      /*
+       * Se existem dois registros
+       * do mesmo cliente dentro
+       * do período, mantemos o
+       * mais recente.
+       */
 
       const rowAtual =
         Number(
@@ -442,92 +676,76 @@ export async function GET(
       }
     }
 
+    /*
+     * ==========================================================
+     * CLIENTES FINAIS
+     * ==========================================================
+     */
+
     let clientes =
       Array.from(
         clientesMap.values()
       );
 
     /*
-     * ============================================================
-     * ORDENAR
-     * ============================================================
+     * ==========================================================
+     * ORDENAR DO MAIS RECENTE
+     * ==========================================================
      */
 
     clientes.sort(
-      (a, b) =>
-        Number(
-          b._row || 0
-        ) -
-        Number(
-          a._row || 0
-        )
+      (a, b) => {
+        /*
+         * Primeiro tenta pelo _row.
+         */
+
+        const rowA =
+          Number(
+            a._row || 0
+          );
+
+        const rowB =
+          Number(
+            b._row || 0
+          );
+
+        if (
+          rowA !== rowB
+        ) {
+          return (
+            rowB - rowA
+          );
+        }
+
+        /*
+         * Se não houver _row,
+         * tenta pela data.
+         */
+
+        const dataA =
+          parseData(a.data);
+
+        const dataB =
+          parseData(b.data);
+
+        if (
+          dataA &&
+          dataB
+        ) {
+          return (
+            dataB.getTime() -
+            dataA.getTime()
+          );
+        }
+
+        return 0;
+      }
     );
 
     /*
-     * ============================================================
-     * FILTRO DE DATA
-     * ============================================================
-     */
-
-    if (
-      inicioFiltro ||
-      fimFiltro
-    ) {
-      clientes =
-        clientes.filter(
-          (cliente) => {
-            const dataCliente =
-              parseData(
-                cliente.data
-              );
-
-            /*
-             * Se não conseguimos
-             * interpretar a data,
-             * não incluímos no período.
-             */
-
-            if (
-              !dataCliente
-            ) {
-              return false;
-            }
-
-            /*
-             * Data anterior
-             * ao início.
-             */
-
-            if (
-              inicioFiltro &&
-              dataCliente <
-                inicioFiltro
-            ) {
-              return false;
-            }
-
-            /*
-             * Data posterior
-             * ao final.
-             */
-
-            if (
-              fimFiltro &&
-              dataCliente >
-                fimFiltro
-            ) {
-              return false;
-            }
-
-            return true;
-          }
-        );
-    }
-
-    /*
-     * ============================================================
+     * ==========================================================
      * STATUS
-     * ============================================================
+     * ==========================================================
      */
 
     const pixGerados =
@@ -565,9 +783,9 @@ export async function GET(
       );
 
     /*
-     * ============================================================
+     * ==========================================================
      * FATURAMENTO
-     * ============================================================
+     * ==========================================================
      */
 
     const volume =
@@ -586,6 +804,12 @@ export async function GET(
         0
       );
 
+    /*
+     * ==========================================================
+     * TICKET MÉDIO
+     * ==========================================================
+     */
+
     const ticketMedio =
       pagos.length > 0
         ? volume /
@@ -593,9 +817,9 @@ export async function GET(
         : 0;
 
     /*
-     * ============================================================
+     * ==========================================================
      * FUNIL
-     * ============================================================
+     * ==========================================================
      */
 
     const etapa1 =
@@ -654,9 +878,9 @@ export async function GET(
     };
 
     /*
-     * ============================================================
+     * ==========================================================
      * CONVERSÃO PIX
-     * ============================================================
+     * ==========================================================
      */
 
     const conversaoPix =
@@ -670,9 +894,9 @@ export async function GET(
         : 0;
 
     /*
-     * ============================================================
+     * ==========================================================
      * CLIENTES RECENTES
-     * ============================================================
+     * ==========================================================
      */
 
     const recentes =
@@ -680,28 +904,42 @@ export async function GET(
         .slice(0, 30)
         .map(
           (r: Lead) => ({
-            row: r._row,
-            data: r.data,
-            nome: r.nome,
+            row:
+              r._row,
+
+            data:
+              r.data,
+
+            nome:
+              r.nome,
+
             telefone:
               r.telefone,
-            email: r.email,
+
+            email:
+              r.email,
+
             endereco:
               r.endereco,
-            valor: r.valor,
+
+            valor:
+              r.valor,
+
             status:
               r.status,
+
             etapa:
               r.etapa,
+
             frete:
               r.frete,
           })
         );
 
     /*
-     * ============================================================
+     * ==========================================================
      * RESPOSTA
-     * ============================================================
+     * ==========================================================
      */
 
     return NextResponse.json({
@@ -738,8 +976,24 @@ export async function GET(
         totalLeads:
           clientes.length,
 
+        /*
+         * Mostra quantos registros
+         * existem na planilha inteira.
+         */
+
         totalRegistrosPlanilha:
           rows.length,
+
+        /*
+         * Mostra quantos registros
+         * sobraram depois do filtro.
+         *
+         * Isso ajuda muito a verificar
+         * se o filtro está funcionando.
+         */
+
+        totalRegistrosFiltrados:
+          rowsFiltradas.length,
       },
 
       recentes,
@@ -764,7 +1018,7 @@ export async function GET(
 
 /*
  * ============================================================
- * MARCAR COMO PAGO
+ * POST — MARCAR COMO PAGO
  * ============================================================
  */
 
