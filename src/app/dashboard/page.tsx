@@ -37,16 +37,15 @@ type Tab =
   | "pix"
   | "config";
 
-type DatePreset =
+type Preset =
   | ""
   | "hoje"
   | "ontem"
-  | "ultimos7"
-  | "estaSemana"
-  | "semanaPassada"
-  | "esteMes"
-  | "mesPassado"
-  | "esteAno"
+  | "semana"
+  | "mes"
+  | "7dias"
+  | "30dias"
+  | "ano"
   | "personalizado";
 
 function formatBRL(v: number) {
@@ -69,40 +68,19 @@ function getLocalDateString(date: Date) {
 }
 
 function startOfWeek(date: Date) {
-  const result = new Date(date);
-  const day = result.getDay();
+  const d = new Date(date);
+  const day = d.getDay();
 
   const diff =
     day === 0 ? -6 : 1 - day;
 
-  result.setDate(
-    result.getDate() + diff
-  );
+  d.setDate(d.getDate() + diff);
 
-  result.setHours(0, 0, 0, 0);
-
-  return result;
-}
-
-function endOfWeek(date: Date) {
-  const result = startOfWeek(date);
-
-  result.setDate(
-    result.getDate() + 6
-  );
-
-  result.setHours(
-    23,
-    59,
-    59,
-    999
-  );
-
-  return result;
+  return d;
 }
 
 function getPresetDates(
-  preset: DatePreset
+  preset: Preset
 ): {
   from: string;
   to: string;
@@ -110,168 +88,97 @@ function getPresetDates(
   const now = new Date();
 
   if (preset === "hoje") {
-    const today =
+    const hoje =
       getLocalDateString(now);
 
     return {
-      from: today,
-      to: today,
+      from: hoje,
+      to: hoje,
     };
   }
 
   if (preset === "ontem") {
-    const yesterday =
-      new Date(now);
-
-    yesterday.setDate(
-      yesterday.getDate() - 1
+    const ontem = new Date(now);
+    ontem.setDate(
+      ontem.getDate() - 1
     );
 
-    const date =
-      getLocalDateString(
-        yesterday
-      );
+    const data =
+      getLocalDateString(ontem);
 
     return {
-      from: date,
-      to: date,
+      from: data,
+      to: data,
     };
   }
 
-  if (preset === "ultimos7") {
-    const from =
-      new Date(now);
-
-    from.setDate(
-      from.getDate() - 6
-    );
-
-    return {
-      from: getLocalDateString(
-        from
-      ),
-      to: getLocalDateString(
-        now
-      ),
-    };
-  }
-
-  if (preset === "estaSemana") {
-    const from =
+  if (preset === "semana") {
+    const inicio =
       startOfWeek(now);
 
-    const to =
-      endOfWeek(now);
-
     return {
       from: getLocalDateString(
-        from
+        inicio
       ),
-      to: getLocalDateString(
-        to
-      ),
+      to: getLocalDateString(now),
     };
   }
 
-  if (
-    preset === "semanaPassada"
-  ) {
-    const from =
-      startOfWeek(now);
-
-    from.setDate(
-      from.getDate() - 7
-    );
-
-    const to =
-      new Date(from);
-
-    to.setDate(
-      to.getDate() + 6
+  if (preset === "mes") {
+    const inicio = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
     );
 
     return {
       from: getLocalDateString(
-        from
+        inicio
       ),
-      to: getLocalDateString(
-        to
-      ),
+      to: getLocalDateString(now),
     };
   }
 
-  if (preset === "esteMes") {
-    const from =
-      new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1
-      );
-
-    const to =
-      new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0
-      );
+  if (preset === "7dias") {
+    const inicio = new Date(now);
+    inicio.setDate(
+      inicio.getDate() - 6
+    );
 
     return {
       from: getLocalDateString(
-        from
+        inicio
       ),
-      to: getLocalDateString(
-        to
-      ),
+      to: getLocalDateString(now),
     };
   }
 
-  if (preset === "mesPassado") {
-    const from =
-      new Date(
-        now.getFullYear(),
-        now.getMonth() - 1,
-        1
-      );
-
-    const to =
-      new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        0
-      );
+  if (preset === "30dias") {
+    const inicio = new Date(now);
+    inicio.setDate(
+      inicio.getDate() - 29
+    );
 
     return {
       from: getLocalDateString(
-        from
+        inicio
       ),
-      to: getLocalDateString(
-        to
-      ),
+      to: getLocalDateString(now),
     };
   }
 
-  if (preset === "esteAno") {
-    const from =
-      new Date(
-        now.getFullYear(),
-        0,
-        1
-      );
-
-    const to =
-      new Date(
-        now.getFullYear(),
-        11,
-        31
-      );
+  if (preset === "ano") {
+    const inicio = new Date(
+      now.getFullYear(),
+      0,
+      1
+    );
 
     return {
       from: getLocalDateString(
-        from
+        inicio
       ),
-      to: getLocalDateString(
-        to
-      ),
+      to: getLocalDateString(now),
     };
   }
 
@@ -364,18 +271,8 @@ Se precisar de qualquer ajuda, é só responder esta mensagem.`;
 
 function LineChart() {
   const points = [
-    8,
-    12,
-    10,
-    15,
-    18,
-    14,
-    20,
-    22,
-    19,
-    25,
-    28,
-    24,
+    8, 12, 10, 15, 18, 14,
+    20, 22, 19, 25, 28, 24,
   ];
 
   const max = 30;
@@ -581,10 +478,17 @@ export default function DashboardPage() {
     useState("");
 
   const [preset, setPreset] =
-    useState<DatePreset>("");
+    useState<Preset>("");
 
-  const [showCustom, setShowCustom] =
-    useState(false);
+  /*
+   * ============================================================
+   * CARREGAR DADOS
+   * ============================================================
+   *
+   * IMPORTANTE:
+   * O backend espera "inicio" e "fim".
+   * Antes estava enviando "dateFrom" e "dateTo".
+   */
 
   async function load(
     pwd: string,
@@ -604,8 +508,8 @@ export default function DashboardPage() {
       );
 
       /*
-       * IMPORTANTE:
-       * A API espera "inicio" e "fim".
+       * ESTES NOMES PRECISAM SER IGUAIS
+       * AOS NOMES USADOS NO route.ts
        */
 
       if (from) {
@@ -666,14 +570,17 @@ export default function DashboardPage() {
     }
   }
 
-  function aplicarFiltro(
-    from = dateFrom,
-    to = dateTo
-  ) {
+  /*
+   * ============================================================
+   * APLICAR FILTRO
+   * ============================================================
+   */
+
+  function aplicarFiltro() {
     if (
-      from &&
-      to &&
-      from > to
+      dateFrom &&
+      dateTo &&
+      dateFrom > dateTo
     ) {
       alert(
         "A data inicial não pode ser maior que a data final."
@@ -681,6 +588,67 @@ export default function DashboardPage() {
 
       return;
     }
+
+    setAppliedDateFrom(
+      dateFrom
+    );
+
+    setAppliedDateTo(
+      dateTo
+    );
+
+    load(
+      password,
+      dateFrom,
+      dateTo
+    );
+  }
+
+  /*
+   * ============================================================
+   * PREDEFINIÇÕES
+   * ============================================================
+   */
+
+  function aplicarPreset(
+    novoPreset: Preset
+  ) {
+    setPreset(novoPreset);
+
+    if (
+      novoPreset === ""
+    ) {
+      setDateFrom("");
+      setDateTo("");
+      setAppliedDateFrom("");
+      setAppliedDateTo("");
+
+      load(
+        password,
+        "",
+        ""
+      );
+
+      return;
+    }
+
+    if (
+      novoPreset ===
+      "personalizado"
+    ) {
+      return;
+    }
+
+    const {
+      from,
+      to,
+    } =
+      getPresetDates(
+        novoPreset
+      );
+
+    setDateFrom(from);
+    setDateTo(to);
 
     setAppliedDateFrom(
       from
@@ -697,66 +665,20 @@ export default function DashboardPage() {
     );
   }
 
-  function selecionarPreset(
-    selected: DatePreset
-  ) {
-    if (
-      selected ===
-      "personalizado"
-    ) {
-      setPreset(
-        "personalizado"
-      );
-
-      setShowCustom(true);
-
-      return;
-    }
-
-    const dates =
-      getPresetDates(
-        selected
-      );
-
-    setPreset(
-      selected
-    );
-
-    setShowCustom(false);
-
-    setDateFrom(
-      dates.from
-    );
-
-    setDateTo(
-      dates.to
-    );
-
-    setAppliedDateFrom(
-      dates.from
-    );
-
-    setAppliedDateTo(
-      dates.to
-    );
-
-    load(
-      password,
-      dates.from,
-      dates.to
-    );
-  }
+  /*
+   * ============================================================
+   * LIMPAR FILTRO
+   * ============================================================
+   */
 
   function limparFiltro() {
+    setPreset("");
+
     setDateFrom("");
     setDateTo("");
 
     setAppliedDateFrom("");
     setAppliedDateTo("");
-
-    setPreset("");
-
-    setShowCustom(false);
 
     load(
       password,
@@ -764,6 +686,12 @@ export default function DashboardPage() {
       ""
     );
   }
+
+  /*
+   * ============================================================
+   * LOGIN AUTOMÁTICO
+   * ============================================================
+   */
 
   useEffect(() => {
     const saved =
@@ -773,7 +701,7 @@ export default function DashboardPage() {
 
     if (saved) {
       setPassword(saved);
-      load(saved);
+      load(saved, "", "");
     }
   }, []);
 
@@ -875,7 +803,9 @@ export default function DashboardPage() {
       }
 
       await load(
-        password
+        password,
+        appliedDateFrom,
+        appliedDateTo
       );
     } catch (error) {
       console.error(
@@ -1044,6 +974,12 @@ export default function DashboardPage() {
     );
   }
 
+  /*
+   * ============================================================
+   * LOGIN
+   * ============================================================
+   */
+
   if (!authed) {
     return (
       <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center p-4">
@@ -1109,6 +1045,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#f4f6f8] flex">
       {/* SIDEBAR */}
+
       <aside className="hidden md:flex w-56 flex-col bg-white border-r border-gray-100 min-h-screen sticky top-0">
         <div className="p-4 flex items-center gap-2 border-b border-gray-50">
           <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm font-bold">
@@ -1151,6 +1088,7 @@ export default function DashboardPage() {
 
       <div className="flex-1 min-w-0">
         {/* TOP BAR */}
+
         <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <button
@@ -1187,7 +1125,11 @@ export default function DashboardPage() {
 
             <button
               onClick={() =>
-                load(password)
+                load(
+                  password,
+                  appliedDateFrom,
+                  appliedDateTo
+                )
               }
               className="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg"
             >
@@ -1197,6 +1139,7 @@ export default function DashboardPage() {
         </header>
 
         {/* MENU MOBILE */}
+
         {menuOpen && (
           <div className="md:hidden bg-white border-b border-gray-100 p-2 flex gap-1 overflow-x-auto">
             {menu.map((m) => (
@@ -1222,224 +1165,187 @@ export default function DashboardPage() {
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
 
-          {/* ==================================================== */}
-          {/* FILTRO DE DATAS */}
-          {/* ==================================================== */}
+          {/* ================================================== */}
+          {/* FILTRO */}
+          {/* ================================================== */}
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 md:p-5">
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-5 shadow-sm">
 
-            <div className="flex flex-col gap-4">
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-gray-900">
+                Período
+              </p>
 
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  Período
-                </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Selecione um período para atualizar todos os dados do dashboard.
+              </p>
+            </div>
 
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Selecione um período para analisar seus dados
-                </p>
-              </div>
+            {/* PRESETS */}
 
-              {/* PRESETS */}
+            <div className="flex flex-wrap gap-2 mb-4">
 
-              <div className="flex flex-wrap gap-2">
-
-                {[
-                  {
-                    id: "hoje" as DatePreset,
-                    label: "Hoje",
-                  },
-                  {
-                    id: "ontem" as DatePreset,
-                    label: "Ontem",
-                  },
-                  {
-                    id: "ultimos7" as DatePreset,
-                    label: "Últimos 7 dias",
-                  },
-                  {
-                    id: "estaSemana" as DatePreset,
-                    label: "Esta semana",
-                  },
-                  {
-                    id: "semanaPassada" as DatePreset,
-                    label: "Semana passada",
-                  },
-                  {
-                    id: "esteMes" as DatePreset,
-                    label: "Este mês",
-                  },
-                  {
-                    id: "mesPassado" as DatePreset,
-                    label: "Mês passado",
-                  },
-                  {
-                    id: "esteAno" as DatePreset,
-                    label: "Este ano",
-                  },
-                ].map((item) => (
+              {[
+                {
+                  id: "hoje" as Preset,
+                  label: "Hoje",
+                },
+                {
+                  id: "ontem" as Preset,
+                  label: "Ontem",
+                },
+                {
+                  id: "semana" as Preset,
+                  label: "Esta semana",
+                },
+                {
+                  id: "mes" as Preset,
+                  label: "Este mês",
+                },
+                {
+                  id: "7dias" as Preset,
+                  label: "Últimos 7 dias",
+                },
+                {
+                  id: "30dias" as Preset,
+                  label: "Últimos 30 dias",
+                },
+                {
+                  id: "ano" as Preset,
+                  label: "Este ano",
+                },
+                {
+                  id: "personalizado" as Preset,
+                  label: "Personalizado",
+                },
+              ].map(
+                (item) => (
                   <button
-                    key={item.id}
+                    key={
+                      item.id
+                    }
                     onClick={() =>
-                      selecionarPreset(
+                      aplicarPreset(
                         item.id
                       )
                     }
-                    disabled={loading}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                      preset === item.id
+                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                      preset ===
+                      item.id
                         ? "bg-teal-600 text-white border-teal-600"
                         : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                    } disabled:opacity-50`}
+                    }`}
                   >
-                    {item.label}
+                    {
+                      item.label
+                    }
                   </button>
-                ))}
+                )
+              )}
 
-                <button
-                  onClick={() =>
-                    selecionarPreset(
-                      "personalizado"
-                    )
+              <button
+                onClick={
+                  limparFiltro
+                }
+                disabled={
+                  loading ||
+                  (!dateFrom &&
+                    !dateTo &&
+                    !appliedDateFrom &&
+                    !appliedDateTo)
+                }
+                className="px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Limpar
+              </button>
+            </div>
+
+            {/* DATAS */}
+
+            <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  Data inicial
+                </label>
+
+                <input
+                  type="date"
+                  value={
+                    dateFrom
                   }
-                  disabled={loading}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                    preset ===
-                    "personalizado"
-                      ? "bg-teal-600 text-white border-teal-600"
-                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                  } disabled:opacity-50`}
-                >
-                  Personalizado
-                </button>
-
+                  onChange={(e) => {
+                    setDateFrom(
+                      e.target.value
+                    );
+                    setPreset(
+                      "personalizado"
+                    );
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                />
               </div>
 
-              {/* DATAS PERSONALIZADAS */}
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  Data final
+                </label>
 
-              {showCustom && (
-                <div className="border-t border-gray-100 pt-4">
+                <input
+                  type="date"
+                  value={
+                    dateTo
+                  }
+                  onChange={(e) => {
+                    setDateTo(
+                      e.target.value
+                    );
+                    setPreset(
+                      "personalizado"
+                    );
+                  }}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                />
+              </div>
 
-                  <div className="grid md:grid-cols-[1fr_1fr_auto_auto] gap-3 items-end">
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                        Data inicial
-                      </label>
-
-                      <input
-                        type="date"
-                        value={
-                          dateFrom
-                        }
-                        onChange={(e) =>
-                          setDateFrom(
-                            e.target
-                              .value
-                          )
-                        }
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                        Data final
-                      </label>
-
-                      <input
-                        type="date"
-                        value={
-                          dateTo
-                        }
-                        onChange={(e) =>
-                          setDateTo(
-                            e.target
-                              .value
-                          )
-                        }
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                      />
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        aplicarFiltro()
-                      }
-                      disabled={
-                        loading
-                      }
-                      className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
-                    >
-                      {loading
-                        ? "Carregando..."
-                        : "Aplicar"}
-                    </button>
-
-                    <button
-                      onClick={
-                        limparFiltro
-                      }
-                      disabled={
-                        loading
-                      }
-                      className="bg-gray-50 hover:bg-gray-100 text-gray-700 font-medium px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
-                    >
-                      Limpar
-                    </button>
-
-                  </div>
-
-                </div>
-              )}
-
-              {/* STATUS DO FILTRO */}
-
-              {appliedDateFrom ||
-              appliedDateTo ? (
-                <div className="flex items-center justify-between gap-3 bg-teal-50 rounded-xl px-3.5 py-2.5">
-
-                  <p className="text-xs text-teal-800">
-
-                    <span className="font-semibold">
-                      Período ativo:
-                    </span>{" "}
-
-                    {formatDateLabel(
-                      appliedDateFrom
-                    )}
-
-                    {appliedDateTo &&
-                      ` até ${formatDateLabel(
-                        appliedDateTo
-                      )}`}
-
-                  </p>
-
-                  <button
-                    onClick={
-                      limparFiltro
-                    }
-                    className="text-xs font-medium text-teal-700 hover:text-teal-900"
-                  >
-                    Remover
-                  </button>
-
-                </div>
-              ) : (
-                <div className="bg-gray-50 rounded-xl px-3.5 py-2.5">
-                  <p className="text-xs text-gray-500">
-                    Exibindo todos os períodos
-                  </p>
-                </div>
-              )}
-
+              <button
+                onClick={
+                  aplicarFiltro
+                }
+                disabled={
+                  loading
+                }
+                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+              >
+                {loading
+                  ? "Carregando..."
+                  : "Aplicar filtro"}
+              </button>
             </div>
+
+            {(appliedDateFrom ||
+              appliedDateTo) && (
+              <div className="mt-4 px-3 py-2.5 bg-teal-50 rounded-xl">
+                <p className="text-xs text-teal-700">
+                  <strong>
+                    Filtro ativo:
+                  </strong>{" "}
+                  {formatDateLabel(
+                    appliedDateFrom
+                  )}{" "}
+                  {appliedDateTo
+                    ? `até ${formatDateLabel(
+                        appliedDateTo
+                      )}`
+                    : ""}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* ==================================================== */}
+          {/* ================================================== */}
           {/* DASHBOARD */}
-          {/* ==================================================== */}
+          {/* ================================================== */}
 
           {tab ===
             "dashboard" && (
@@ -1616,9 +1522,9 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* ==================================================== */}
+          {/* ================================================== */}
           {/* VENDAS */}
-          {/* ==================================================== */}
+          {/* ================================================== */}
 
           {tab ===
             "vendas" && (
@@ -1663,9 +1569,9 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* ==================================================== */}
+          {/* ================================================== */}
           {/* CARRINHOS */}
-          {/* ==================================================== */}
+          {/* ================================================== */}
 
           {tab ===
             "carrinhos" && (
@@ -1709,9 +1615,9 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* ==================================================== */}
+          {/* ================================================== */}
           {/* PIX */}
-          {/* ==================================================== */}
+          {/* ================================================== */}
 
           {tab ===
             "pix" && (
@@ -1753,9 +1659,9 @@ export default function DashboardPage() {
             </>
           )}
 
-          {/* ==================================================== */}
-          {/* CONFIGURAÇÕES */}
-          {/* ==================================================== */}
+          {/* ================================================== */}
+          {/* CONFIG */}
+          {/* ================================================== */}
 
           {tab ===
             "config" && (
@@ -1811,7 +1717,7 @@ export default function DashboardPage() {
                   <strong>
                     Filtro:
                   </strong>{" "}
-                  use os períodos rápidos ou selecione Personalizado.
+                  permite selecionar Hoje, Ontem, Semana, Mês, períodos personalizados e outros intervalos.
                 </p>
 
                 <p>
