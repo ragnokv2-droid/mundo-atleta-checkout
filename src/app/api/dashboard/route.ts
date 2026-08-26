@@ -13,30 +13,15 @@ type Lead = {
   etapa?: string | number;
 };
 
-/*
- * ============================================================
- * NORMALIZAR
- * ============================================================
- */
-
 function normalizar(valor: unknown) {
   return String(valor || "")
     .trim()
     .toLowerCase();
 }
 
-/*
- * ============================================================
- * CHAVE DO CLIENTE
- * ============================================================
- */
-
 function chaveCliente(r: Lead) {
   const email = normalizar(r.email);
-
-  const telefone = normalizar(
-    r.telefone
-  ).replace(/\D/g, "");
+  const telefone = normalizar(r.telefone).replace(/\D/g, "");
 
   if (email && telefone) {
     return `${email}|${telefone}`;
@@ -53,12 +38,6 @@ function chaveCliente(r: Lead) {
   return `row:${r._row || Math.random()}`;
 }
 
-/*
- * ============================================================
- * VALOR NUMÉRICO
- * ============================================================
- */
-
 function valorNumerico(valor: unknown) {
   const texto = String(valor || "0")
     .replace("R$", "")
@@ -67,26 +46,11 @@ function valorNumerico(valor: unknown) {
 
   let numero = 0;
 
-  /*
-   * Exemplos:
-   *
-   * 119,90
-   * 1.119,90
-   * 119.90
-   */
-
-  if (
-    texto.includes(",") &&
-    texto.includes(".")
-  ) {
+  if (texto.includes(",") && texto.includes(".")) {
     numero = parseFloat(
-      texto
-        .replace(/\./g, "")
-        .replace(",", ".")
+      texto.replace(/\./g, "").replace(",", ".")
     );
-  } else if (
-    texto.includes(",")
-  ) {
+  } else if (texto.includes(",")) {
     numero = parseFloat(
       texto.replace(",", ".")
     );
@@ -94,70 +58,40 @@ function valorNumerico(valor: unknown) {
     numero = parseFloat(texto);
   }
 
-  return Number.isFinite(numero)
-    ? numero
-    : 0;
+  return Number.isFinite(numero) ? numero : 0;
 }
 
 /*
  * ============================================================
  * PARSE DE DATA
  * ============================================================
- *
- * Aceita:
- *
- * 25/08/2026
- * 25/08/2026 20:30
- * 25/08/2026 20:30:00
- *
- * 2026-08-25
- * 2026-08-25 20:30
- * 2026-08-25 20:30:00
- *
- * 2026-08-25T20:30:00
- *
- * A data é sempre construída
- * no horário local do servidor.
  */
 
-function parseData(
-  valor: unknown
-): Date | null {
-  if (!valor) {
-    return null;
-  }
+function parseData(valor: unknown): Date | null {
+  if (!valor) return null;
 
-  const texto =
-    String(valor).trim();
+  const texto = String(valor).trim();
 
-  if (!texto) {
-    return null;
-  }
+  if (!texto) return null;
 
   /*
-   * ==========================================================
    * DD/MM/YYYY
-   * ==========================================================
+   * DD/MM/YYYY HH:mm
+   * DD/MM/YYYY HH:mm:ss
    */
 
   const br = texto.match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/
   );
 
   if (br) {
     const dia = Number(br[1]);
-    const mes =
-      Number(br[2]) - 1;
+    const mes = Number(br[2]) - 1;
     const ano = Number(br[3]);
 
-    const hora =
-      Number(br[4] || 0);
-
-    const minuto =
-      Number(br[5] || 0);
-
-    const segundo =
-      Number(br[6] || 0);
+    const hora = Number(br[4] || 0);
+    const minuto = Number(br[5] || 0);
+    const segundo = Number(br[6] || 0);
 
     const data = new Date(
       ano,
@@ -169,45 +103,29 @@ function parseData(
       0
     );
 
-    if (
-      !Number.isNaN(
-        data.getTime()
-      )
-    ) {
-      return data;
-    }
-
-    return null;
+    return Number.isNaN(data.getTime())
+      ? null
+      : data;
   }
 
   /*
-   * ==========================================================
    * YYYY-MM-DD
-   * ==========================================================
+   * YYYY-MM-DDTHH:mm:ss
+   * YYYY-MM-DD HH:mm:ss
    */
 
   const iso = texto.match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
   );
 
   if (iso) {
-    const ano =
-      Number(iso[1]);
+    const ano = Number(iso[1]);
+    const mes = Number(iso[2]) - 1;
+    const dia = Number(iso[3]);
 
-    const mes =
-      Number(iso[2]) - 1;
-
-    const dia =
-      Number(iso[3]);
-
-    const hora =
-      Number(iso[4] || 0);
-
-    const minuto =
-      Number(iso[5] || 0);
-
-    const segundo =
-      Number(iso[6] || 0);
+    const hora = Number(iso[4] || 0);
+    const minuto = Number(iso[5] || 0);
+    const segundo = Number(iso[6] || 0);
 
     const data = new Date(
       ano,
@@ -219,67 +137,64 @@ function parseData(
       0
     );
 
-    if (
-      !Number.isNaN(
-        data.getTime()
-      )
-    ) {
-      return data;
-    }
-
-    return null;
+    return Number.isNaN(data.getTime())
+      ? null
+      : data;
   }
 
   /*
-   * ==========================================================
-   * ÚLTIMA TENTATIVA
-   * ==========================================================
+   * Última tentativa
    */
 
-  const tentativa =
-    new Date(texto);
+  const tentativa = new Date(texto);
 
-  if (
-    !Number.isNaN(
-      tentativa.getTime()
-    )
-  ) {
-    return tentativa;
-  }
-
-  return null;
+  return Number.isNaN(tentativa.getTime())
+    ? null
+    : tentativa;
 }
 
 /*
  * ============================================================
- * CRIAR DATA INICIAL
+ * CRIA DATA LOCAL SEM PROBLEMA DE FUSO
  * ============================================================
  */
 
-function dataInicioFiltro(
-  valor?: string | null
+function criarDataLocal(
+  ano: number,
+  mes: number,
+  dia: number,
+  hora = 0,
+  minuto = 0,
+  segundo = 0,
+  ms = 0
 ) {
-  if (!valor) {
-    return null;
-  }
+  return new Date(
+    ano,
+    mes,
+    dia,
+    hora,
+    minuto,
+    segundo,
+    ms
+  );
+}
 
-  const partes =
-    valor.split("-");
+/*
+ * ============================================================
+ * DATA INICIAL
+ * ============================================================
+ */
 
-  if (
-    partes.length !== 3
-  ) {
-    return null;
-  }
+function dataInicioFiltro(valor?: string | null) {
+  if (!valor) return null;
 
-  const ano =
-    Number(partes[0]);
+  const partes = valor.split("-");
 
-  const mes =
-    Number(partes[1]) - 1;
+  if (partes.length !== 3) return null;
 
-  const dia =
-    Number(partes[2]);
+  const ano = Number(partes[0]);
+  const mes = Number(partes[1]) - 1;
+  const dia = Number(partes[2]);
 
   if (
     !Number.isInteger(ano) ||
@@ -289,7 +204,7 @@ function dataInicioFiltro(
     return null;
   }
 
-  const data = new Date(
+  return criarDataLocal(
     ano,
     mes,
     dia,
@@ -298,44 +213,24 @@ function dataInicioFiltro(
     0,
     0
   );
-
-  return Number.isNaN(
-    data.getTime()
-  )
-    ? null
-    : data;
 }
 
 /*
  * ============================================================
- * CRIAR DATA FINAL
+ * DATA FINAL
  * ============================================================
  */
 
-function dataFimFiltro(
-  valor?: string | null
-) {
-  if (!valor) {
-    return null;
-  }
+function dataFimFiltro(valor?: string | null) {
+  if (!valor) return null;
 
-  const partes =
-    valor.split("-");
+  const partes = valor.split("-");
 
-  if (
-    partes.length !== 3
-  ) {
-    return null;
-  }
+  if (partes.length !== 3) return null;
 
-  const ano =
-    Number(partes[0]);
-
-  const mes =
-    Number(partes[1]) - 1;
-
-  const dia =
-    Number(partes[2]);
+  const ano = Number(partes[0]);
+  const mes = Number(partes[1]) - 1;
+  const dia = Number(partes[2]);
 
   if (
     !Number.isInteger(ano) ||
@@ -345,14 +240,7 @@ function dataFimFiltro(
     return null;
   }
 
-  /*
-   * IMPORTANTE:
-   *
-   * O filtro termina às 23:59:59.999
-   * do dia selecionado.
-   */
-
-  const data = new Date(
+  return criarDataLocal(
     ano,
     mes,
     dia,
@@ -361,68 +249,26 @@ function dataFimFiltro(
     59,
     999
   );
-
-  return Number.isNaN(
-    data.getTime()
-  )
-    ? null
-    : data;
 }
 
 /*
  * ============================================================
- * VERIFICAR SE REGISTRO ESTÁ NO PERÍODO
+ * VERIFICA SE DATA ESTÁ DENTRO DO PERÍODO
  * ============================================================
  */
 
-function registroDentroDoPeriodo(
-  row: Lead,
+function dataDentroDoPeriodo(
+  data: Date | null,
   inicio: Date | null,
   fim: Date | null
 ) {
-  /*
-   * Se não existe filtro,
-   * aceita tudo.
-   */
+  if (!data) return false;
 
-  if (!inicio && !fim) {
-    return true;
-  }
-
-  const data =
-    parseData(row.data);
-
-  /*
-   * Se existe filtro mas a
-   * data do registro não pode
-   * ser interpretada, não entra.
-   */
-
-  if (!data) {
+  if (inicio && data < inicio) {
     return false;
   }
 
-  /*
-   * Antes da data inicial.
-   */
-
-  if (
-    inicio &&
-    data.getTime() <
-      inicio.getTime()
-  ) {
-    return false;
-  }
-
-  /*
-   * Depois da data final.
-   */
-
-  if (
-    fim &&
-    data.getTime() >
-      fim.getTime()
-  ) {
+  if (fim && data > fim) {
     return false;
   }
 
@@ -438,12 +284,6 @@ function registroDentroDoPeriodo(
 export async function GET(
   req: NextRequest
 ) {
-  /*
-   * ==========================================================
-   * SENHA
-   * ==========================================================
-   */
-
   const password =
     req.nextUrl.searchParams.get(
       "password"
@@ -453,25 +293,16 @@ export async function GET(
     process.env.DASHBOARD_PASSWORD ||
     "mundoatleta";
 
-  if (
-    password !== expected
-  ) {
+  if (password !== expected) {
     return NextResponse.json(
       {
-        error:
-          "Não autorizado",
+        error: "Não autorizado",
       },
       {
         status: 401,
       }
     );
   }
-
-  /*
-   * ==========================================================
-   * WEBHOOK
-   * ==========================================================
-   */
 
   const webhook =
     process.env.LEADS_WEBHOOK_URL;
@@ -489,14 +320,9 @@ export async function GET(
   }
 
   /*
-   * ==========================================================
-   * FILTRO
-   * ==========================================================
-   *
-   * O page.tsx envia exatamente:
-   *
-   * dateFrom
-   * dateTo
+   * ============================================================
+   * RECEBER FILTRO
+   * ============================================================
    */
 
   const dateFrom =
@@ -510,30 +336,24 @@ export async function GET(
     );
 
   const inicioFiltro =
-    dataInicioFiltro(
-      dateFrom
-    );
+    dataInicioFiltro(dateFrom);
 
   const fimFiltro =
-    dataFimFiltro(
-      dateTo
-    );
+    dataFimFiltro(dateTo);
 
   try {
     /*
-     * ==========================================================
+     * ============================================================
      * BUSCAR PLANILHA
-     * ==========================================================
+     * ============================================================
      */
 
-    const res =
-      await fetch(
-        webhook,
-        {
-          cache:
-            "no-store",
-        }
-      );
+    const res = await fetch(
+      webhook,
+      {
+        cache: "no-store",
+      }
+    );
 
     if (!res.ok) {
       return NextResponse.json(
@@ -565,57 +385,55 @@ export async function GET(
       );
     }
 
-    /*
-     * ==========================================================
-     * TODOS OS REGISTROS
-     * ==========================================================
-     */
-
     const rows: Lead[] =
-      Array.isArray(
-        json.data
-      )
+      Array.isArray(json.data)
         ? json.data.filter(
             (r: Lead) =>
-              normalizar(
-                r.nome
-              ) !==
+              normalizar(r.nome) !==
                 "nome" &&
-              normalizar(
-                r.email
-              ) !==
+              normalizar(r.email) !==
                 "email"
           )
         : [];
 
     /*
-     * ==========================================================
-     * AQUI ESTÁ A CORREÇÃO PRINCIPAL
-     * ==========================================================
+     * ============================================================
+     * PRIMEIRO FILTRA AS LINHAS PELO PERÍODO
+     * ============================================================
      *
-     * PRIMEIRO filtramos os registros pela data.
+     * ESTA É A PARTE MAIS IMPORTANTE.
      *
-     * SOMENTE DEPOIS agrupamos os clientes.
-     *
-     * Isso evita que um registro mais recente
-     * de um cliente substitua um registro antigo
-     * que deveria aparecer no período selecionado.
+     * Antes agrupávamos os clientes e depois filtrávamos.
+     * Agora cada registro da planilha é filtrado primeiro.
      */
 
-    let rowsFiltradas =
-      rows.filter(
-        (row) =>
-          registroDentroDoPeriodo(
-            row,
-            inicioFiltro,
-            fimFiltro
-          )
-      );
+    let rowsFiltradas = rows;
+
+    if (
+      inicioFiltro ||
+      fimFiltro
+    ) {
+      rowsFiltradas =
+        rows.filter(
+          (row) => {
+            const data =
+              parseData(
+                row.data
+              );
+
+            return dataDentroDoPeriodo(
+              data,
+              inicioFiltro,
+              fimFiltro
+            );
+          }
+        );
+    }
 
     /*
-     * ==========================================================
+     * ============================================================
      * AGRUPAR CLIENTES
-     * ==========================================================
+     * ============================================================
      */
 
     const clientesMap =
@@ -624,9 +442,7 @@ export async function GET(
         Lead
       >();
 
-    for (
-      const row of rowsFiltradas
-    ) {
+    for (const row of rowsFiltradas) {
       const chave =
         chaveCliente(row);
 
@@ -634,10 +450,6 @@ export async function GET(
         clientesMap.get(
           chave
         );
-
-      /*
-       * Primeiro registro
-       */
 
       if (!existente) {
         clientesMap.set(
@@ -647,13 +459,6 @@ export async function GET(
 
         continue;
       }
-
-      /*
-       * Se existem dois registros
-       * do mesmo cliente dentro
-       * do período, mantemos o
-       * mais recente.
-       */
 
       const rowAtual =
         Number(
@@ -676,52 +481,19 @@ export async function GET(
       }
     }
 
-    /*
-     * ==========================================================
-     * CLIENTES FINAIS
-     * ==========================================================
-     */
-
     let clientes =
       Array.from(
         clientesMap.values()
       );
 
     /*
-     * ==========================================================
-     * ORDENAR DO MAIS RECENTE
-     * ==========================================================
+     * ============================================================
+     * ORDENAR POR DATA
+     * ============================================================
      */
 
     clientes.sort(
       (a, b) => {
-        /*
-         * Primeiro tenta pelo _row.
-         */
-
-        const rowA =
-          Number(
-            a._row || 0
-          );
-
-        const rowB =
-          Number(
-            b._row || 0
-          );
-
-        if (
-          rowA !== rowB
-        ) {
-          return (
-            rowB - rowA
-          );
-        }
-
-        /*
-         * Se não houver _row,
-         * tenta pela data.
-         */
-
         const dataA =
           parseData(a.data);
 
@@ -738,14 +510,21 @@ export async function GET(
           );
         }
 
-        return 0;
+        return (
+          Number(
+            b._row || 0
+          ) -
+          Number(
+            a._row || 0
+          )
+        );
       }
     );
 
     /*
-     * ==========================================================
+     * ============================================================
      * STATUS
-     * ==========================================================
+     * ============================================================
      */
 
     const pixGerados =
@@ -783,9 +562,9 @@ export async function GET(
       );
 
     /*
-     * ==========================================================
+     * ============================================================
      * FATURAMENTO
-     * ==========================================================
+     * ============================================================
      */
 
     const volume =
@@ -793,33 +572,24 @@ export async function GET(
         (
           acc: number,
           r: Lead
-        ) => {
-          return (
-            acc +
-            valorNumerico(
-              r.valor
-            )
-          );
-        },
+        ) =>
+          acc +
+          valorNumerico(
+            r.valor
+          ),
         0
       );
 
-    /*
-     * ==========================================================
-     * TICKET MÉDIO
-     * ==========================================================
-     */
-
     const ticketMedio =
-      pagos.length > 0
+      pagos.length
         ? volume /
           pagos.length
         : 0;
 
     /*
-     * ==========================================================
+     * ============================================================
      * FUNIL
-     * ==========================================================
+     * ============================================================
      */
 
     const etapa1 =
@@ -878,14 +648,13 @@ export async function GET(
     };
 
     /*
-     * ==========================================================
+     * ============================================================
      * CONVERSÃO PIX
-     * ==========================================================
+     * ============================================================
      */
 
     const conversaoPix =
-      pixGerados.length >
-      0
+      pixGerados.length
         ? Math.round(
             (pagos.length /
               pixGerados.length) *
@@ -894,52 +663,38 @@ export async function GET(
         : 0;
 
     /*
-     * ==========================================================
-     * CLIENTES RECENTES
-     * ==========================================================
+     * ============================================================
+     * RECENTES
+     * ============================================================
      */
 
     const recentes =
       clientes
         .slice(0, 30)
         .map(
-          (r: Lead) => ({
-            row:
-              r._row,
-
-            data:
-              r.data,
-
-            nome:
-              r.nome,
-
+          (r) => ({
+            row: r._row,
+            data: r.data,
+            nome: r.nome,
             telefone:
               r.telefone,
-
-            email:
-              r.email,
-
+            email: r.email,
             endereco:
               r.endereco,
-
-            valor:
-              r.valor,
-
+            valor: r.valor,
             status:
               r.status,
-
             etapa:
               r.etapa,
-
             frete:
               r.frete,
           })
         );
 
     /*
-     * ==========================================================
+     * ============================================================
      * RESPOSTA
-     * ==========================================================
+     * ============================================================
      */
 
     return NextResponse.json({
@@ -947,12 +702,16 @@ export async function GET(
 
       filtro: {
         dateFrom:
-          dateFrom ||
-          null,
+          dateFrom || null,
 
         dateTo:
-          dateTo ||
-          null,
+          dateTo || null,
+
+        totalAntes:
+          rows.length,
+
+        totalDepois:
+          rowsFiltradas.length,
       },
 
       stats: {
@@ -976,24 +735,8 @@ export async function GET(
         totalLeads:
           clientes.length,
 
-        /*
-         * Mostra quantos registros
-         * existem na planilha inteira.
-         */
-
         totalRegistrosPlanilha:
           rows.length,
-
-        /*
-         * Mostra quantos registros
-         * sobraram depois do filtro.
-         *
-         * Isso ajuda muito a verificar
-         * se o filtro está funcionando.
-         */
-
-        totalRegistrosFiltrados:
-          rowsFiltradas.length,
       },
 
       recentes,
@@ -1018,7 +761,7 @@ export async function GET(
 
 /*
  * ============================================================
- * POST — MARCAR COMO PAGO
+ * POST - MARCAR COMO PAGO
  * ============================================================
  */
 
@@ -1039,8 +782,7 @@ export async function POST(
       "mundoatleta";
 
     if (
-      password !==
-      expected
+      password !== expected
     ) {
       return NextResponse.json(
         {
