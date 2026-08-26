@@ -125,6 +125,31 @@ function getPresetDates(preset: Preset): { from: string; to: string } {
   return { from: "", to: "" };
 }
 
+/** Formata data para exibição no horário de Brasília */
+function formatLeadData(raw: string) {
+  if (!raw) return "";
+
+  // Já está no formato BR (dd/MM/yyyy...)
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(raw)) {
+    return raw;
+  }
+
+  const d = new Date(raw);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+
+  return raw;
+}
+
 function waLink(phone: string, nome: string, status: string, valor: string) {
   const n = String(phone || "").replace(/\D/g, "");
   if (!n) return "#";
@@ -253,7 +278,6 @@ export default function DashboardPage() {
       const params = new URLSearchParams();
       params.set("password", pwd);
 
-      // Nomes iguais aos do route.ts
       if (from) params.set("dateFrom", from);
       if (to) params.set("dateTo", to);
 
@@ -330,7 +354,6 @@ export default function DashboardPage() {
     load(password, "", "");
   }
 
-  // Ao abrir com sessão salva → já filtra HOJE
   useEffect(() => {
     const saved = sessionStorage.getItem("dash_pwd");
     if (!saved) return;
@@ -413,7 +436,7 @@ export default function DashboardPage() {
             {lead.nome || "Sem nome"}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            {lead.data ? `${lead.data} · ` : ""}
+            {lead.data ? `${formatLeadData(lead.data)} · ` : ""}
             {lead.telefone || "—"} · R$ {lead.valor || "0"}
             {lead.frete ? ` · ${lead.frete}` : ""}
           </p>
@@ -563,7 +586,6 @@ export default function DashboardPage() {
         )}
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
-          {/* FILTRO */}
           <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-5 shadow-sm">
             <div className="mb-4">
               <p className="text-sm font-semibold text-gray-900">Período</p>
