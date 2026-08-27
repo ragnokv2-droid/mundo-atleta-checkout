@@ -18,6 +18,7 @@ export default function MetaPixel() {
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
           fbq('init', '${1049853073957255}');
+          fbq('init', '28162540780065698');
           fbq('track', 'PageView');
         `}
       </Script>
