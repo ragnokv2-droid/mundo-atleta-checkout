@@ -16,11 +16,21 @@ interface Props {
   onShippingChange: (method: ShippingMethod) => void;
   onNext: () => void;
   onBack: () => void;
+  /** Nome do cliente (etapa 1) — usado em Destinatário */
+  customerName?: string;
 }
 
 function maskCep(value: string) {
   const v = value.replace(/\D/g, "").slice(0, 8);
   return v.replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function CheckIcon() {
+  return (
+    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-600 text-sm font-bold">
+      ✓
+    </span>
+  );
 }
 
 export default function Step2Address({
@@ -30,11 +40,19 @@ export default function Step2Address({
   onShippingChange,
   onNext,
   onBack,
+  customerName = "",
 }: Props) {
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepFound, setCepFound] = useState(false);
   const [cepError, setCepError] = useState<string | null>(null);
+  const [recipient, setRecipient] = useState(customerName);
   const lastCep = useRef("");
+
+  useEffect(() => {
+    if (customerName && !recipient) {
+      setRecipient(customerName);
+    }
+  }, [customerName, recipient]);
 
   const addressComplete =
     cepFound &&
@@ -43,7 +61,8 @@ export default function Step2Address({
     data.number.trim().length > 0 &&
     data.neighborhood.trim().length > 1 &&
     data.city.trim().length > 1 &&
-    data.state.length === 2;
+    data.state.length === 2 &&
+    recipient.trim().length > 1;
 
   const isValid = addressComplete && shipping !== null;
 
@@ -96,17 +115,23 @@ export default function Step2Address({
           Entrega
         </h2>
         <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-          Informe o CEP para preencher o endereço automaticamente. Depois escolha
-          a forma de entrega.
+          Cadastre ou selecione um endereço
         </p>
       </div>
 
       <div className="space-y-4">
-        {/* CEP */}
+        {/* CEP + cidade/UF */}
         <div>
-          <label className="block text-sm font-medium text-gray-800 mb-1.5">
-            CEP
-          </label>
+          <div className="flex items-end justify-between gap-3 mb-1.5">
+            <label className="block text-sm font-medium text-gray-800">
+              CEP
+            </label>
+            {cepFound && data.city && data.state && (
+              <span className="text-sm text-gray-500">
+                {data.city} / {data.state}
+              </span>
+            )}
+          </div>
           <div className="relative">
             <input
               type="text"
@@ -116,34 +141,38 @@ export default function Step2Address({
               onChange={(e) =>
                 onChange({ ...data, zipCode: maskCep(e.target.value) })
               }
-              className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+              className="w-full border border-gray-200 rounded-lg px-3.5 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
             />
             {loadingCep && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
                 Buscando...
               </span>
             )}
+            {!loadingCep && cepFound && <CheckIcon />}
           </div>
           {cepError && (
             <p className="mt-1.5 text-xs text-red-600">{cepError}</p>
           )}
         </div>
 
-        {/* Endereço após CEP */}
+        {/* Campos após CEP — layout Torqua */}
         {cepFound && (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-800 mb-1.5">
-                Rua
+                Endereço
               </label>
-              <input
-                type="text"
-                value={data.street}
-                onChange={(e) =>
-                  onChange({ ...data, street: e.target.value })
-                }
-                className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={data.street}
+                  onChange={(e) =>
+                    onChange({ ...data, street: e.target.value })
+                  }
+                  className="w-full border border-gray-200 rounded-lg px-3.5 py-3 pr-10 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                />
+                {data.street.trim().length > 2 && <CheckIcon />}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -151,83 +180,67 @@ export default function Step2Address({
                 <label className="block text-sm font-medium text-gray-800 mb-1.5">
                   Número
                 </label>
-                <input
-                  type="text"
-                  placeholder="Nº"
-                  value={data.number}
-                  onChange={(e) =>
-                    onChange({ ...data, number: e.target.value })
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                  autoFocus
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Nº"
+                    value={data.number}
+                    onChange={(e) =>
+                      onChange({ ...data, number: e.target.value })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3.5 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                    autoFocus
+                  />
+                  {data.number.trim().length > 0 && <CheckIcon />}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-800 mb-1.5">
-                  Complemento
+                  Bairro
                 </label>
-                <input
-                  type="text"
-                  placeholder="Opcional"
-                  value={data.complement || ""}
-                  onChange={(e) =>
-                    onChange({ ...data, complement: e.target.value })
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={data.neighborhood}
+                    onChange={(e) =>
+                      onChange({ ...data, neighborhood: e.target.value })
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3.5 py-3 pr-10 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                  />
+                  {data.neighborhood.trim().length > 1 && <CheckIcon />}
+                </div>
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-800 mb-1.5">
-                Bairro
+                Complemento{" "}
+                <span className="text-gray-400 font-normal">(opcional)</span>
               </label>
               <input
                 type="text"
-                value={data.neighborhood}
+                placeholder=""
+                value={data.complement || ""}
                 onChange={(e) =>
-                  onChange({ ...data, neighborhood: e.target.value })
+                  onChange({ ...data, complement: e.target.value })
                 }
-                className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-800 mb-1.5">
-                  Cidade
-                </label>
+            <div>
+              <label className="block text-sm font-medium text-gray-800 mb-1.5">
+                Destinatário
+              </label>
+              <div className="relative">
                 <input
                   type="text"
-                  value={data.city}
-                  onChange={(e) =>
-                    onChange({ ...data, city: e.target.value })
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                  value={recipient}
+                  onChange={(e) => setRecipient(e.target.value)}
+                  placeholder="Nome de quem vai receber"
+                  className="w-full border border-gray-200 rounded-lg px-3.5 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-800 mb-1.5">
-                  Estado
-                </label>
-                <select
-                  value={data.state}
-                  onChange={(e) =>
-                    onChange({ ...data, state: e.target.value })
-                  }
-                  className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-                >
-                  <option value="">UF</option>
-                  {[
-                    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO",
-                    "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI",
-                    "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
-                  ].map((uf) => (
-                    <option key={uf} value={uf}>
-                      {uf}
-                    </option>
-                  ))}
-                </select>
+                {recipient.trim().length > 1 && <CheckIcon />}
               </div>
             </div>
           </>
@@ -302,7 +315,7 @@ export default function Step2Address({
           disabled={!isValid}
           className="flex-[2] bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-lg text-sm transition-colors"
         >
-          Ir para Pagamento
+          Continuar
         </button>
       </div>
     </div>
