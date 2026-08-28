@@ -44,16 +44,6 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     return () => clearInterval(id);
   }, [pix]);
 
-  // Trava o scroll do body enquanto a tela de aguardo está aberta
-  useEffect(() => {
-    if (!pix) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [pix]);
-
   async function generatePix() {
     setLoading(true);
     setError(null);
@@ -122,96 +112,96 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // ========== TELA CHEIA: Quase lá... (como Torqua) ==========
+  // Tela "Quase lá..." (dentro do checkout, sem full screen)
   if (pix) {
     const expired = secondsLeft <= 0;
 
     return (
-      <div className="fixed inset-0 z-50 bg-[#f5f5f5] overflow-y-auto">
-        <div className="min-h-full max-w-lg mx-auto px-4 py-10 flex flex-col items-center">
-          <div className="text-center mb-6 w-full">
-            <h1 className="text-2xl font-bold text-gray-900">Quase lá...</h1>
-            <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-              {expired ? (
-                <>O tempo para pagar este Pix esgotou.</>
-              ) : (
-                <>
-                  Pague seu Pix dentro de{" "}
-                  <strong className="text-gray-800">
-                    {formatTimer(secondsLeft)}
-                  </strong>
-                  <br />
-                  para garantir sua compra.
-                </>
-              )}
-            </p>
+      <div className="px-4 py-8 bg-white min-h-[60vh]">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Quase lá...</h2>
+          <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+            {expired ? (
+              <>O tempo para pagar este Pix esgotou.</>
+            ) : (
+              <>
+                Pague seu Pix dentro de{" "}
+                <strong className="text-gray-800">
+                  {formatTimer(secondsLeft)}
+                </strong>{" "}
+                para garantir sua compra.
+              </>
+            )}
+          </p>
 
-            <div className="mt-5 inline-flex items-center gap-2 bg-amber-50 text-amber-800 text-sm font-medium px-5 py-2.5 rounded-full">
-              {expired ? "Tempo esgotado" : "Aguardando pagamento"}
-              {!expired && (
-                <span className="flex gap-1 ml-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse [animation-delay:150ms]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse [animation-delay:300ms]" />
-                </span>
-              )}
-            </div>
+          <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 text-amber-800 text-sm font-medium px-4 py-2 rounded-full">
+            {expired ? "Tempo esgotado" : "Aguardando pagamento"}
+            {!expired && (
+              <span className="flex gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse [animation-delay:150ms]" />
+                <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse [animation-delay:300ms]" />
+              </span>
+            )}
           </div>
+        </div>
 
-          <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
-            <p className="text-sm text-gray-600">
-              Valor do Pix:{" "}
-              <strong className="text-gray-900 text-base">
-                {formatBRL(totalAmount)}
-              </strong>
-            </p>
-
-            <button
-              type="button"
-              onClick={copyCode}
-              disabled={expired}
-              className="mt-5 w-full flex items-center justify-center gap-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 text-white font-semibold py-3.5 rounded-lg text-sm transition-colors"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4" /> Código copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" /> Copiar código
-                </>
-              )}
-            </button>
-
-            <p className="text-xs text-gray-500 mt-5 leading-relaxed">
-              Após copiar o código, abra seu aplicativo de pagamento onde você
-              utiliza o Pix.
-              <br />
-              <br />
-              Escolha a opção{" "}
-              <span className="text-teal-700 font-semibold">
-                Pix Copia e Cola
-              </span>{" "}
-              e insira o código copiado
-            </p>
-          </div>
+        <div className="border border-gray-200 rounded-xl p-5 text-center">
+          <p className="text-sm text-gray-600 mb-1">Valor do Pix:</p>
+          <p className="text-xl font-bold text-gray-900 mb-4">
+            {formatBRL(totalAmount)}
+          </p>
 
           <button
             type="button"
-            onClick={() => {
-              setPix(null);
-              onBack();
-            }}
-            className="mt-8 text-sm text-gray-400 underline"
+            onClick={copyCode}
+            disabled={expired}
+            className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-800 disabled:bg-gray-300 text-white font-semibold py-3.5 rounded-lg text-sm transition-colors"
           >
-            Voltar ao checkout
+            {copied ? (
+              <>
+                <Check className="w-4 h-4" /> Código copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" /> Copiar código
+              </>
+            )}
           </button>
+
+          <p className="text-xs text-gray-500 mt-4 leading-relaxed">
+            Após copiar o código, abra seu aplicativo de pagamento onde você
+            utiliza o Pix.
+            <br />
+            Escolha a opção{" "}
+            <strong className="text-teal-700">Pix Copia e Cola</strong> e
+            insira o código copiado.
+          </p>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <p className="text-xs text-gray-400 mb-3">Ou escaneie o QR Code</p>
+            <div className="flex justify-center">
+              <img
+                src={pix.brCodeBase64}
+                alt="QR Code PIX"
+                className="w-40 h-40 rounded-lg border border-gray-100"
+              />
+            </div>
+          </div>
         </div>
+
+        <button
+          type="button"
+          onClick={onBack}
+          className="mt-6 w-full text-sm text-gray-500 underline"
+        >
+          Voltar
+        </button>
       </div>
     );
   }
 
-  // ========== Tela de escolha do Pix ==========
+  // Tela inicial — card Pix
   return (
     <div className="px-4 py-6 bg-white">
       <div className="mb-5">
