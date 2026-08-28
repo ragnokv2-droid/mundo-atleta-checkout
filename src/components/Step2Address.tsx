@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -84,7 +83,9 @@ export default function Step2Address({
     async function search() {
       setLoadingCep(true);
       setCepError(null);
+
       const result = await fetchAddressByCep(clean);
+
       setLoadingCep(false);
 
       if (result) {
@@ -97,6 +98,7 @@ export default function Step2Address({
           state: result.uf || "",
           complement: result.complemento || data.complement || "",
         });
+
         setCepFound(true);
       } else {
         setCepFound(false);
@@ -105,6 +107,7 @@ export default function Step2Address({
     }
 
     search();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.zipCode]);
 
@@ -137,7 +140,7 @@ export default function Step2Address({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 leading-snug">
                 {data.street}, {data.number}
-                {data.complement ? ` – ${data.complement}` : ""} –{" "}
+                {data.complement ? ` - ${data.complement}` : ""} -{" "}
                 {data.neighborhood}
               </p>
 
@@ -426,4 +429,3 @@ export default function Step2Address({
     </div>
   );
 }
-```
