@@ -47,7 +47,6 @@ export default function Step2Address({
   );
   const [cepError, setCepError] = useState<string | null>(null);
   const [recipient, setRecipient] = useState(customerName);
-  /** "address" = formulário | "shipping" = frete (estilo Torqua) */
   const [phase, setPhase] = useState<"address" | "shipping">("address");
   const lastCep = useRef("");
 
@@ -108,7 +107,6 @@ export default function Step2Address({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.zipCode]);
 
-  // ========== FASE FRETE (estilo Torqua) ==========
   if (phase === "shipping") {
     return (
       <div className="px-4 py-6 bg-white">
@@ -124,7 +122,6 @@ export default function Step2Address({
           </p>
         </div>
 
-        {/* Card do endereço salvo */}
         <div className="mb-6">
           <p className="text-sm font-medium text-teal-700 mb-2">
             + Novo endereço
@@ -158,7 +155,6 @@ export default function Step2Address({
           </div>
         </div>
 
-        {/* Opções de frete */}
         <div>
           <p className="text-sm font-semibold text-gray-900 mb-3">
             Escolha uma forma de entrega:
@@ -229,7 +225,6 @@ export default function Step2Address({
     );
   }
 
-  // ========== FASE ENDEREÇO ==========
   return (
     <div className="px-4 py-6 bg-white">
       <div className="mb-5">
@@ -260,6 +255,8 @@ export default function Step2Address({
             <input
               type="text"
               inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="postal-code"
               placeholder="00000-000"
               value={data.zipCode}
               onChange={(e) =>
@@ -306,10 +303,16 @@ export default function Step2Address({
                 <div className="relative">
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Nº"
                     value={data.number}
                     onChange={(e) =>
-                      onChange({ ...data, number: e.target.value })
+                      onChange({
+                        ...data,
+                        // permite número e caracteres comuns (ex.: 123A, S/N)
+                        number: e.target.value,
+                      })
                     }
                     className="w-full border border-gray-200 rounded-lg px-3.5 py-3 pr-10 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
                     autoFocus
