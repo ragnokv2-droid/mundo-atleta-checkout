@@ -10,16 +10,16 @@ interface Props {
 formData: CheckoutFormData;
 totalAmount: number;
 onBack: () => void;
-/** Avisa o page.tsx para esconder etapas e resumo */
 onPixReady?: (ready: boolean) => void;
 }
 
-const PIX_TIMEOUT_SECONDS = 5 * 60; // 5 minutos
+const PIX_TIMEOUT_SECONDS = 5 * 60;
 
 function formatTimer(totalSeconds: number) {
 const m = Math.floor(totalSeconds / 60);
 const s = totalSeconds % 60;
-return ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")};
+
+return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 export default function Step3Payment({
@@ -37,6 +37,7 @@ const [secondsLeft, setSecondsLeft] = useState(PIX_TIMEOUT_SECONDS);
 useEffect(() => {
 if (!pix) return;
 
+```
 setSecondsLeft(PIX_TIMEOUT_SECONDS);
 
 const id = setInterval(() => {
@@ -45,15 +46,16 @@ const id = setInterval(() => {
       clearInterval(id);
       return 0;
     }
+
     return prev - 1;
   });
 }, 1000);
 
 return () => clearInterval(id);
+```
 
 }, [pix]);
 
-// Avisa o page quando entra/sai da tela do PIX
 useEffect(() => {
 onPixReady?.(!!pix);
 }, [pix, onPixReady]);
@@ -62,10 +64,13 @@ async function generatePix() {
 setLoading(true);
 setError(null);
 
+```
 try {
   const res = await fetch("/api/pix", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       amount: totalAmount,
       customer: {
@@ -99,7 +104,9 @@ try {
 
   fetch("/api/leads", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       nome: formData.name,
       email: formData.email,
@@ -112,21 +119,26 @@ try {
     }),
   }).catch(() => {});
 } catch (err: unknown) {
-  const message = err instanceof Error ? err.message : "Erro inesperado";
+  const message =
+    err instanceof Error ? err.message : "Erro inesperado";
+
   setError(message);
 } finally {
   setLoading(false);
 }
+```
 
 }
 
 function copyCode() {
 if (!pix) return;
 
+```
 navigator.clipboard.writeText(pix.brCode);
 setCopied(true);
 
 setTimeout(() => setCopied(false), 2000);
+```
 
 }
 
@@ -136,10 +148,10 @@ onPixReady?.(false);
 onBack();
 }
 
-// Tela "Quase lá..." — sem etapas/resumo (controlado pelo page.tsx)
 if (pix) {
 const expired = secondsLeft <= 0;
 
+```
 return (
   <div className="px-4 py-8 bg-white min-h-[60vh]">
     <div className="text-center mb-6">
@@ -237,21 +249,15 @@ return (
     </button>
   </div>
 );
+```
 
 }
 
-// Tela inicial — card Pix
-return (
-<div className="px-4 py-6 bg-white">
-<div className="mb-5">
-<h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-<span className="w-7 h-7 rounded-full bg-[#1e3a8a] text-white text-sm flex items-center justify-center font-bold">
-3
-</span>
+return ( <div className="px-4 py-6 bg-white"> <div className="mb-5"> <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"> <span className="w-7 h-7 rounded-full bg-[#1e3a8a] text-white text-sm flex items-center justify-center font-bold">
+3 </span>
+Pagamento </h2>
 
-      Pagamento
-    </h2>
-
+```
     <p className="text-sm text-gray-500 mt-2">
       Para finalizar seu pedido, escolha a forma de pagamento
     </p>
@@ -317,6 +323,7 @@ return (
     Voltar
   </button>
 </div>
+```
 
 );
 }
