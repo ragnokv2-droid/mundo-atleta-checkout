@@ -98,13 +98,13 @@ export default function CheckoutPage() {
           shipping={shipping}
           onChange={setAddress}
           onShippingChange={setShipping}
+          customerName={customer.name}
           onNext={() => {
             trackMetaEvent("AddPaymentInfo", {
               content_name: PRODUCT.name,
               currency: "BRL",
               value: totalAmount / 100,
             });
-
             saveLead({
               nome: customer.name,
               email: customer.email,
@@ -115,7 +115,6 @@ export default function CheckoutPage() {
               status: "abandonado_frete",
               etapa: 2,
             });
-
             setStep(3);
           }}
           onBack={() => setStep(1)}
