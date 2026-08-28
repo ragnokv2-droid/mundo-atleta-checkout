@@ -10,6 +10,8 @@ interface Props {
   formData: CheckoutFormData;
   totalAmount: number;
   onBack: () => void;
+  /** Avisa o page.tsx para esconder etapas e resumo */
+  onPixReady?: (ready: boolean) => void;
 }
 
 const PIX_TIMEOUT_SECONDS = 5 * 60; // 5 minutos
@@ -20,7 +22,12 @@ function formatTimer(totalSeconds: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
+export default function Step3Payment({
+  formData,
+  totalAmount,
+  onBack,
+  onPixReady,
+}: Props) {
   const [pix, setPix] = useState<PixResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +50,11 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
     return () => clearInterval(id);
   }, [pix]);
+
+  // Avisa o page quando entra/sai da tela do PIX
+  useEffect(() => {
+    onPixReady?.(!!pix);
+  }, [pix, onPixReady]);
 
   async function generatePix() {
     setLoading(true);
@@ -112,7 +124,13 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Tela "Quase lá..." (dentro do checkout, sem full screen)
+  function handleBack() {
+    setPix(null);
+    onPixReady?.(false);
+    onBack();
+  }
+
+  // Tela "Quase lá..." — sem etapas/resumo (controlado pelo page.tsx)
   if (pix) {
     const expired = secondsLeft <= 0;
 
@@ -192,7 +210,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
         <button
           type="button"
-          onClick={onBack}
+          onClick={handleBack}
           className="mt-6 w-full text-sm text-gray-500 underline"
         >
           Voltar
