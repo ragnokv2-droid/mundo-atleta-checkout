@@ -16,7 +16,6 @@ interface Props {
   onShippingChange: (method: ShippingMethod) => void;
   onNext: () => void;
   onBack: () => void;
-  /** Nome do cliente (etapa 1) — usado em Destinatário */
   customerName?: string;
 }
 
@@ -43,9 +42,13 @@ export default function Step2Address({
   customerName = "",
 }: Props) {
   const [loadingCep, setLoadingCep] = useState(false);
-  const [cepFound, setCepFound] = useState(false);
+  const [cepFound, setCepFound] = useState(
+    data.zipCode.replace(/\D/g, "").length === 8 && data.street.length > 2
+  );
   const [cepError, setCepError] = useState<string | null>(null);
   const [recipient, setRecipient] = useState(customerName);
+  /** "address" = formulário | "shipping" = frete (estilo Torqua) */
+  const [phase, setPhase] = useState<"address" | "shipping">("address");
   const lastCep = useRef("");
 
   useEffect(() => {
@@ -64,7 +67,7 @@ export default function Step2Address({
     data.state.length === 2 &&
     recipient.trim().length > 1;
 
-  const isValid = addressComplete && shipping !== null;
+  const canGoPayment = addressComplete && shipping !== null;
 
   useEffect(() => {
     const clean = data.zipCode.replace(/\D/g, "");
@@ -105,6 +108,128 @@ export default function Step2Address({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.zipCode]);
 
+  // ========== FASE FRETE (estilo Torqua) ==========
+  if (phase === "shipping") {
+    return (
+      <div className="px-4 py-6 bg-white">
+        <div className="mb-5">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <span className="w-7 h-7 rounded-full bg-teal-600 text-white text-sm flex items-center justify-center font-bold">
+              2
+            </span>
+            Entrega
+          </h2>
+          <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+            Cadastre ou selecione um endereço
+          </p>
+        </div>
+
+        {/* Card do endereço salvo */}
+        <div className="mb-6">
+          <p className="text-sm font-medium text-teal-700 mb-2">
+            + Novo endereço
+          </p>
+          <div className="border border-gray-200 rounded-xl p-4 flex gap-3 items-start">
+            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center flex-shrink-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 leading-snug">
+                {data.street}, {data.number}
+                {data.complement ? ` – ${data.complement}` : ""} –{" "}
+                {data.neighborhood}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {data.city}-{data.state} | CEP {data.zipCode}
+              </p>
+              {recipient && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Destinatário: {recipient}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPhase("address")}
+              className="text-xs text-gray-500 hover:text-teal-700 font-medium flex-shrink-0"
+            >
+              Editar
+            </button>
+          </div>
+        </div>
+
+        {/* Opções de frete */}
+        <div>
+          <p className="text-sm font-semibold text-gray-900 mb-3">
+            Escolha uma forma de entrega:
+          </p>
+          <div className="space-y-2">
+            {SHIPPING_OPTIONS.map((option) => {
+              const selected = shipping === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onShippingChange(option.id)}
+                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-colors ${
+                    selected
+                      ? "border-teal-600 bg-teal-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                      selected ? "border-teal-600" : "border-gray-300"
+                    }`}
+                  >
+                    {selected && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {option.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {option.days}
+                      {option.description ? ` · ${option.description}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 flex-shrink-0">
+                    {option.price === 0 ? (
+                      <span className="text-teal-700">Grátis</span>
+                    ) : (
+                      formatBRL(option.price)
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-8 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setPhase("address")}
+            className="flex-1 border border-gray-300 text-gray-700 font-medium py-3.5 rounded-lg hover:bg-gray-50 text-sm"
+          >
+            Voltar
+          </button>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!canGoPayment}
+            className="flex-[2] bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-lg text-sm transition-colors"
+          >
+            Ir para Pagamento
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== FASE ENDEREÇO ==========
   return (
     <div className="px-4 py-6 bg-white">
       <div className="mb-5">
@@ -120,7 +245,6 @@ export default function Step2Address({
       </div>
 
       <div className="space-y-4">
-        {/* CEP + cidade/UF */}
         <div>
           <div className="flex items-end justify-between gap-3 mb-1.5">
             <label className="block text-sm font-medium text-gray-800">
@@ -155,7 +279,6 @@ export default function Step2Address({
           )}
         </div>
 
-        {/* Campos após CEP — layout Torqua */}
         {cepFound && (
           <>
             <div>
@@ -219,12 +342,11 @@ export default function Step2Address({
               </label>
               <input
                 type="text"
-                placeholder=""
                 value={data.complement || ""}
                 onChange={(e) =>
                   onChange({ ...data, complement: e.target.value })
                 }
-                className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
+                className="w-full border border-gray-200 rounded-lg px-3.5 py-3 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
               />
             </div>
 
@@ -245,60 +367,6 @@ export default function Step2Address({
             </div>
           </>
         )}
-
-        {/* Frete */}
-        {addressComplete && (
-          <div className="pt-2">
-            <p className="text-sm font-semibold text-gray-900 mb-3">
-              Escolha a forma de entrega
-            </p>
-            <div className="space-y-2">
-              {SHIPPING_OPTIONS.map((option) => {
-                const selected = shipping === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => onShippingChange(option.id)}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-colors ${
-                      selected
-                        ? "border-teal-600 bg-teal-50"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                        selected ? "border-teal-600" : "border-gray-300"
-                      }`}
-                    >
-                      {selected && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-teal-600" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {option.name}{" "}
-                        <span className="font-normal text-gray-500">
-                          – {option.days}
-                        </span>
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {option.description}
-                      </p>
-                    </div>
-                    <div className="text-sm font-semibold text-gray-900 flex-shrink-0">
-                      {option.price === 0 ? (
-                        <span className="text-teal-700">Grátis</span>
-                      ) : (
-                        formatBRL(option.price)
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="mt-8 flex gap-3">
@@ -311,8 +379,8 @@ export default function Step2Address({
         </button>
         <button
           type="button"
-          onClick={onNext}
-          disabled={!isValid}
+          onClick={() => setPhase("shipping")}
+          disabled={!addressComplete}
           className="flex-[2] bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3.5 rounded-lg text-sm transition-colors"
         >
           Continuar
