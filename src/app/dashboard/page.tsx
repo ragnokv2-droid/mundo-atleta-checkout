@@ -30,7 +30,13 @@ type Lead = {
   frete: string;
 };
 
-type Tab = "dashboard" | "vendas" | "carrinhos" | "pix" | "config";
+type Tab =
+  | "dashboard"
+  | "vendas"
+  | "carrinhos"
+  | "pix"
+  | "personalizar"
+  | "config";
 
 type Preset =
   | ""
@@ -42,6 +48,24 @@ type Preset =
   | "30dias"
   | "ano"
   | "personalizado";
+
+type CheckoutConfig = {
+  logoUrl: string;
+  bannerText: string;
+  bannerBgColor: string;
+  bannerTextColor: string;
+  primaryColor: string;
+  primaryHover: string;
+};
+
+const DEFAULT_CONFIG: CheckoutConfig = {
+  logoUrl: "",
+  bannerText: "PIX ou Cartão — envio prioritário",
+  bannerBgColor: "#0f172a",
+  bannerTextColor: "#ffffff",
+  primaryColor: "#0d9488",
+  primaryHover: "#0f766e",
+};
 
 function formatBRL(v: number) {
   return v.toLocaleString("pt-BR", {
@@ -125,15 +149,9 @@ function getPresetDates(preset: Preset): { from: string; to: string } {
   return { from: "", to: "" };
 }
 
-/** Formata data para exibição no horário de Brasília */
 function formatLeadData(raw: string) {
   if (!raw) return "";
-
-  // Já está no formato BR (dd/MM/yyyy...)
-  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(raw)) {
-    return raw;
-  }
-
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(raw)) return raw;
   const d = new Date(raw);
   if (!Number.isNaN(d.getTime())) {
     return d.toLocaleString("pt-BR", {
@@ -146,7 +164,6 @@ function formatLeadData(raw: string) {
       second: "2-digit",
     });
   }
-
   return raw;
 }
 
@@ -271,13 +288,27 @@ export default function DashboardPage() {
   const [appliedDateTo, setAppliedDateTo] = useState("");
   const [preset, setPreset] = useState<Preset>("");
 
+  const [config, setConfig] = useState<CheckoutConfig>(DEFAULT_CONFIG);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configMsg, setConfigMsg] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  async function loadConfig() {
+    try {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      const json = await res.json();
+      if (json.config) setConfig({ ...DEFAULT_CONFIG, ...json.config });
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function load(pwd: string, from = appliedDateFrom, to = appliedDateTo) {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams();
       params.set("password", pwd);
-
       if (from) params.set("dateFrom", from);
       if (to) params.set("dateTo", to);
 
@@ -296,6 +327,7 @@ export default function DashboardPage() {
       setRecentes(json.recentes || []);
       setAuthed(true);
       sessionStorage.setItem("dash_pwd", pwd);
+      loadConfig();
     } catch {
       setError("Erro de conexão");
     } finally {
@@ -401,6 +433,57 @@ export default function DashboardPage() {
     }
   }
 
+  async function saveConfig() {
+    setConfigLoading(true);
+    setConfigMsg("");
+    try {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, ...config }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setConfigMsg(json.error || "Erro ao salvar");
+        return;
+      }
+      setConfig({ ...DEFAULT_CONFIG, ...json.config });
+      setConfigMsg("Salvo com sucesso!");
+    } catch {
+      setConfigMsg("Erro de conexão");
+    } finally {
+      setConfigLoading(false);
+    }
+  }
+
+  async function uploadLogo(file: File) {
+    setUploading(true);
+    setConfigMsg("");
+    try {
+      const form = new FormData();
+      form.set("password", password);
+      form.set("file", file);
+
+      const res = await fetch("/api/config/upload", {
+        method: "POST",
+        body: form,
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setConfigMsg(json.error || "Erro no upload");
+        return;
+      }
+
+      setConfig((c) => ({ ...c, logoUrl: json.url }));
+      setConfigMsg("Logo enviada! Clique em Salvar para aplicar.");
+    } catch {
+      setConfigMsg("Erro de conexão no upload");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const vendas = recentes.filter(
     (l) => String(l.status).toLowerCase() === "pago"
   );
@@ -416,6 +499,7 @@ export default function DashboardPage() {
     { id: "vendas", label: "Vendas", icon: "₹" },
     { id: "carrinhos", label: "Carrinhos", icon: "🛒" },
     { id: "pix", label: "PIX", icon: "⬡" },
+    { id: "personalizar", label: "Personalização", icon: "🎨" },
     { id: "config", label: "Configurações", icon: "⚙" },
   ];
 
@@ -547,22 +631,30 @@ export default function DashboardPage() {
             >
               ☰
             </button>
-            <p className="text-sm font-semibold text-gray-900 capitalize">{tab}</p>
+            <p className="text-sm font-semibold text-gray-900 capitalize">
+              {tab === "personalizar" ? "Personalização" : tab}
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden sm:block text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
-              {appliedDateFrom || appliedDateTo
-                ? `${formatDateLabel(appliedDateFrom)}${
-                    appliedDateTo ? ` até ${formatDateLabel(appliedDateTo)}` : ""
-                  }`
-                : "Todos os períodos"}
-            </span>
-            <button
-              onClick={() => load(password, appliedDateFrom, appliedDateTo)}
-              className="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg"
-            >
-              Atualizar
-            </button>
+            {tab !== "personalizar" && (
+              <span className="hidden sm:block text-xs text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
+                {appliedDateFrom || appliedDateTo
+                  ? `${formatDateLabel(appliedDateFrom)}${
+                      appliedDateTo
+                        ? ` até ${formatDateLabel(appliedDateTo)}`
+                        : ""
+                    }`
+                  : "Todos os períodos"}
+              </span>
+            )}
+            {tab !== "personalizar" && (
+              <button
+                onClick={() => load(password, appliedDateFrom, appliedDateTo)}
+                className="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg"
+              >
+                Atualizar
+              </button>
+            )}
           </div>
         </header>
 
@@ -586,101 +678,108 @@ export default function DashboardPage() {
         )}
 
         <main className="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-5 shadow-sm">
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-gray-900">Período</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Selecione um período para atualizar todos os dados do dashboard.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-4">
-              {(
-                [
-                  { id: "hoje" as Preset, label: "Hoje" },
-                  { id: "ontem" as Preset, label: "Ontem" },
-                  { id: "semana" as Preset, label: "Esta semana" },
-                  { id: "mes" as Preset, label: "Este mês" },
-                  { id: "7dias" as Preset, label: "Últimos 7 dias" },
-                  { id: "30dias" as Preset, label: "Últimos 30 dias" },
-                  { id: "ano" as Preset, label: "Este ano" },
-                  { id: "personalizado" as Preset, label: "Personalizado" },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => aplicarPreset(item.id)}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
-                    preset === item.id
-                      ? "bg-teal-600 text-white border-teal-600"
-                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-              <button
-                onClick={limparFiltro}
-                disabled={
-                  loading ||
-                  (!dateFrom && !dateTo && !appliedDateFrom && !appliedDateTo)
-                }
-                className="px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-              >
-                Limpar
-              </button>
-            </div>
-
-            <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                  Data inicial
-                </label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => {
-                    setDateFrom(e.target.value);
-                    setPreset("personalizado");
-                  }}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                  Data final
-                </label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => {
-                    setDateTo(e.target.value);
-                    setPreset("personalizado");
-                  }}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
-                />
-              </div>
-              <button
-                onClick={aplicarFiltro}
-                disabled={loading}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
-              >
-                {loading ? "Carregando..." : "Aplicar filtro"}
-              </button>
-            </div>
-
-            {(appliedDateFrom || appliedDateTo) && (
-              <div className="mt-4 px-3 py-2.5 bg-teal-50 rounded-xl">
-                <p className="text-xs text-teal-700">
-                  <strong>Filtro ativo:</strong>{" "}
-                  {formatDateLabel(appliedDateFrom)}
-                  {appliedDateTo
-                    ? ` até ${formatDateLabel(appliedDateTo)}`
-                    : ""}
+          {/* Filtro — esconde na personalização */}
+          {tab !== "personalizar" && tab !== "config" && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 md:p-5 shadow-sm">
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-gray-900">Período</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Selecione um período para atualizar todos os dados do
+                  dashboard.
                 </p>
               </div>
-            )}
-          </div>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                {(
+                  [
+                    { id: "hoje" as Preset, label: "Hoje" },
+                    { id: "ontem" as Preset, label: "Ontem" },
+                    { id: "semana" as Preset, label: "Esta semana" },
+                    { id: "mes" as Preset, label: "Este mês" },
+                    { id: "7dias" as Preset, label: "Últimos 7 dias" },
+                    { id: "30dias" as Preset, label: "Últimos 30 dias" },
+                    { id: "ano" as Preset, label: "Este ano" },
+                    { id: "personalizado" as Preset, label: "Personalizado" },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => aplicarPreset(item.id)}
+                    className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors ${
+                      preset === item.id
+                        ? "bg-teal-600 text-white border-teal-600"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+                <button
+                  onClick={limparFiltro}
+                  disabled={
+                    loading ||
+                    (!dateFrom &&
+                      !dateTo &&
+                      !appliedDateFrom &&
+                      !appliedDateTo)
+                  }
+                  className="px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Limpar
+                </button>
+              </div>
+
+              <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                    Data inicial
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      setDateFrom(e.target.value);
+                      setPreset("personalizado");
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                    Data final
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      setDateTo(e.target.value);
+                      setPreset("personalizado");
+                    }}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                  />
+                </div>
+                <button
+                  onClick={aplicarFiltro}
+                  disabled={loading}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm disabled:opacity-50"
+                >
+                  {loading ? "Carregando..." : "Aplicar filtro"}
+                </button>
+              </div>
+
+              {(appliedDateFrom || appliedDateTo) && (
+                <div className="mt-4 px-3 py-2.5 bg-teal-50 rounded-xl">
+                  <p className="text-xs text-teal-700">
+                    <strong>Filtro ativo:</strong>{" "}
+                    {formatDateLabel(appliedDateFrom)}
+                    {appliedDateTo
+                      ? ` até ${formatDateLabel(appliedDateTo)}`
+                      : ""}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {tab === "dashboard" && (
             <>
@@ -728,7 +827,10 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                  { label: "PIX gerados", value: String(stats?.pixGerados ?? 0) },
+                  {
+                    label: "PIX gerados",
+                    value: String(stats?.pixGerados ?? 0),
+                  },
                   { label: "PIX pagos", value: String(stats?.pixPagos ?? 0) },
                   {
                     label: "Carrinhos abandonados",
@@ -744,7 +846,9 @@ export default function DashboardPage() {
                     className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm"
                   >
                     <p className="text-[11px] text-gray-500">{k.label}</p>
-                    <p className="text-xl font-bold text-gray-900 mt-2">{k.value}</p>
+                    <p className="text-xl font-bold text-gray-900 mt-2">
+                      {k.value}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -837,10 +941,173 @@ export default function DashboardPage() {
             </>
           )}
 
+          {tab === "personalizar" && (
+            <>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Personalização
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Logo, barra de avisos e cores do checkout
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-5 max-w-xl">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 mb-2">
+                    Logomarca
+                  </p>
+                  {config.logoUrl ? (
+                    <img
+                      src={config.logoUrl}
+                      alt="Logo"
+                      className="h-14 object-contain mb-3 bg-gray-50 rounded-lg p-2 border border-gray-100"
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-400 mb-2">
+                      Nenhuma logo enviada ainda
+                    </p>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadLogo(f);
+                    }}
+                    className="text-sm text-gray-600"
+                  />
+                  {uploading && (
+                    <p className="text-xs text-gray-500 mt-1">Enviando...</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                    Texto da barra de avisos
+                  </label>
+                  <input
+                    type="text"
+                    value={config.bannerText}
+                    onChange={(e) =>
+                      setConfig((c) => ({ ...c, bannerText: e.target.value }))
+                    }
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Cor de fundo da barra
+                    </label>
+                    <input
+                      type="color"
+                      value={config.bannerBgColor}
+                      onChange={(e) =>
+                        setConfig((c) => ({
+                          ...c,
+                          bannerBgColor: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 rounded-lg cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Cor do texto da barra
+                    </label>
+                    <input
+                      type="color"
+                      value={config.bannerTextColor}
+                      onChange={(e) =>
+                        setConfig((c) => ({
+                          ...c,
+                          bannerTextColor: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 rounded-lg cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Cor principal (botões)
+                    </label>
+                    <input
+                      type="color"
+                      value={config.primaryColor}
+                      onChange={(e) =>
+                        setConfig((c) => ({
+                          ...c,
+                          primaryColor: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 rounded-lg cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Cor principal (hover)
+                    </label>
+                    <input
+                      type="color"
+                      value={config.primaryHover}
+                      onChange={(e) =>
+                        setConfig((c) => ({
+                          ...c,
+                          primaryHover: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 rounded-lg cursor-pointer border border-gray-200"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-gray-500 mb-1.5">Pré-visualização</p>
+                  <div
+                    className="rounded-xl px-4 py-2.5 text-center text-sm font-medium"
+                    style={{
+                      backgroundColor: config.bannerBgColor,
+                      color: config.bannerTextColor,
+                    }}
+                  >
+                    {config.bannerText || "Pré-visualização da barra"}
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-3 w-full text-white font-semibold py-2.5 rounded-lg text-sm"
+                    style={{ backgroundColor: config.primaryColor }}
+                  >
+                    Exemplo de botão
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={saveConfig}
+                  disabled={configLoading}
+                  className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold py-3 rounded-xl text-sm"
+                >
+                  {configLoading ? "Salvando..." : "Salvar personalização"}
+                </button>
+
+                {configMsg && (
+                  <p className="text-sm text-center text-teal-700">{configMsg}</p>
+                )}
+              </div>
+            </>
+          )}
+
           {tab === "config" && (
             <>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Configurações</h1>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Configurações
+                </h1>
                 <p className="text-sm text-gray-500">Informações do painel</p>
               </div>
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3 text-sm text-gray-600">
@@ -855,8 +1122,8 @@ export default function DashboardPage() {
                   <strong>Dados:</strong> vêm da planilha Google (Apps Script)
                 </p>
                 <p>
-                  <strong>Marcar pago:</strong> use o botão na lista quando o PIX
-                  cair no extrato do banco
+                  <strong>Personalização:</strong> logo e cores ficam no Vercel
+                  Blob
                 </p>
                 <p>
                   <strong>Filtro:</strong> ao abrir, o período padrão é{" "}
