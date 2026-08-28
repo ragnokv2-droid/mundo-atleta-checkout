@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, list } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 
 export type CheckoutConfig = {
   logoUrl: string;
@@ -19,12 +19,19 @@ const DEFAULT_CONFIG: CheckoutConfig = {
   primaryHover: "#0f766e",
 };
 
-const CONFIG_PATH = "checkout-config.json";
+const CONFIG_PREFIX = "checkout-config";
 
 async function readConfig(): Promise<CheckoutConfig> {
   try {
-    const { blobs } = await list({ prefix: CONFIG_PATH, limit: 1 });
-    const file = blobs.find((b) => b.pathname === CONFIG_PATH);
+    const { blobs } = await list({ prefix: CONFIG_PREFIX, limit: 20 });
+    if (!blobs.length) return DEFAULT_CONFIG;
+
+    // pega o mais recente
+    const sorted = [...blobs].sort(
+      (a, b) =>
+        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+    );
+    const file = sorted[0];
     if (!file?.url) return DEFAULT_CONFIG;
 
     const res = await fetch(file.url, { cache: "no-store" });
@@ -37,12 +44,23 @@ async function readConfig(): Promise<CheckoutConfig> {
 }
 
 async function writeConfig(config: CheckoutConfig) {
-  await put(CONFIG_PATH, JSON.stringify(config, null, 2), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-  });
+  // apaga configs antigas para não acumular
+  try {
+    const { blobs } = await list({ prefix: CONFIG_PREFIX, limit: 50 });
+    await Promise.all(blobs.map((b) => del(b.url)));
+  } catch {
+    // ignore
+  }
+
+  await put(
+    `${CONFIG_PREFIX}.json`,
+    JSON.stringify(config, null, 2),
+    {
+      access: "public",
+      contentType: "application/json",
+      addRandomSuffix: true,
+    }
+  );
 }
 
 /** Público — checkout lê sem senha */
@@ -76,6 +94,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, config: next });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Erro ao salvar config" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Erro ao salvar config" },
+      { status: 500 }
+    );
   }
 }
