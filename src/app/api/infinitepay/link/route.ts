@@ -1,83 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PRODUCT } from "@/lib/product";
 
-const CARD_PRICE_CENTS = 10990; // R$ 109,90
+const DEFAULT_CARD_PRICE_CENTS = 10990;
 
-function parseShippingCents(shipping: unknown): number {
-  if (shipping === null || shipping === undefined) {
-    return 0;
+function normalizeAmount(value: unknown): number {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) {
+    return DEFAULT_CARD_PRICE_CENTS;
   }
 
-  if (typeof shipping === "number") {
-    if (!Number.isFinite(shipping) || shipping <= 0) {
-      return 0;
-    }
+  const cents = Math.round(amount);
 
-    if (shipping < 100) {
-      return Math.round(shipping * 100);
-    }
-
-    return Math.round(shipping);
+  if (cents < DEFAULT_CARD_PRICE_CENTS) {
+    return DEFAULT_CARD_PRICE_CENTS;
   }
 
-  const raw = String(shipping).trim().toLowerCase();
-
-  if (!raw) {
-    return 0;
-  }
-
-  if (
-    raw.includes("grátis") ||
-    raw.includes("gratis") ||
-    raw === "0" ||
-    raw === "0,00" ||
-    raw === "r$ 0,00"
-  ) {
-    return 0;
-  }
-
-  const cleaned = raw
-    .replace(/r\$/g, "")
-    .replace(/\s/g, "")
-    .replace(/[^\d,.-]/g, "");
-
-  if (!cleaned) {
-    return 0;
-  }
-
-  let value: number;
-
-  if (cleaned.includes(",") && cleaned.includes(".")) {
-    value = Number(cleaned.replace(/\./g, "").replace(",", "."));
-  } else if (cleaned.includes(",")) {
-    value = Number(cleaned.replace(",", "."));
-  } else {
-    value = Number(cleaned);
-  }
-
-  if (!Number.isFinite(value) || value <= 0) {
-    return 0;
-  }
-
-  return Math.round(value * 100);
-}
-
-function normalizePhone(phone: unknown): string | undefined {
-  if (!phone) {
-    return undefined;
-  }
-
-  const digits = String(phone).replace(/\D/g, "");
-
-  if (!digits) {
-    return undefined;
-  }
-
-  if (digits.startsWith("55")) {
-    return `+${digits}`;
-  }
-
-  return `+55${digits}`;
+  return cents;
 }
 
 export async function POST(req: NextRequest) {
@@ -93,8 +32,15 @@ export async function POST(req: NextRequest) {
 
     const handle = rawHandle.trim().replace(/^\$/, "");
 
+    if (!handle) {
+      return NextResponse.json(
+        { error: "INFINITEPAY_HANDLE inválido" },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
-    const { customer, address, shipping } = body;
+    const { customer, address, shipping, amount } = body;
 
     if (!customer?.name || !customer?.email) {
       return NextResponse.json(
@@ -103,77 +49,102 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const shippingCents = parseShippingCents(shipping);
-    const totalCents = CARD_PRICE_CENTS + shippingCents;
+    const totalCents = normalizeAmount(amount);
+    const shippingCents = Math.max(
+      0,
+      totalCents - DEFAULT_CARD_PRICE_CENTS
+    );
 
-    const orderNsu = `card_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 10)}`;
+    const orderNsu = `card-${Date.now()}`;
 
     const origin =
-      req.headers.get("origin") ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+      req.headers.get("origin")?.replace(/\/$/, "") ||
       "https://mundo-atleta-checkout.vercel.app";
 
-    const items: Array<{
-      quantity: number;
-      price: number;
-      description: string;
-    }> = [
-      {
-        quantity: 1,
-        price: CARD_PRICE_CENTS,
-        description: PRODUCT.name || "Aparelho Abdominal AB Tomic",
-      },
-    ];
-
-    if (shippingCents > 0) {
-      items.push({
-        quantity: 1,
-        price: shippingCents,
-        description: "Frete",
-      });
-    }
-
-    const customerPayload: Record<string, string> = {
-      name: String(customer.name).trim(),
-      email: String(customer.email).trim(),
-    };
-
-    const phone = normalizePhone(customer.cellphone);
-
-    if (phone) {
-      customerPayload.phone_number = phone;
-    }
-
-    const payload: Record<string, unknown> = {
+    // Payload enxuto conforme a documentação oficial da InfinitePay.
+    // Dados de cliente/endereço são opcionais e foram removidos daqui
+    // para evitar "Invalid checkout link params" por algum campo inválido.
+    const payload = {
       handle,
       order_nsu: orderNsu,
       redirect_url: `${origin}/pagamento-ok`,
       webhook_url: `${origin}/api/infinitepay/webhook`,
-      items,
-      customer: customerPayload,
+      items: [
+        {
+          quantity: 1,
+          price: totalCents,
+          description: PRODUCT.name || "Aparelho Abdominal AB Tomic",
+        },
+      ],
     };
 
-    if (address?.zipCode) {
-      const cep = String(address.zipCode).replace(/\D/g, "");
+    console.log("[infinitepay/link] payload", JSON.stringify(payload));
 
-      if (cep) {
-        const addressPayload: Record<string, string> = {
-          cep,
-          street: String(address.street || "").trim(),
-          neighborhood: String(address.neighborhood || "").trim(),
-          number: String(address.number || "").trim(),
-        };
+    const res = await fetch("https://api.checkout.infinitepay.io/links", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
 
-        if (address.complement) {
-          addressPayload.complement = String(address.complement).trim();
-        }
+    const rawResponse = await res.text();
 
-        payload.address = addressPayload;
-      }
+    let json: Record<string, unknown> = {};
+
+    try {
+      json = rawResponse ? JSON.parse(rawResponse) : {};
+    } catch {
+      json = {};
     }
 
+    if (!res.ok) {
+      console.error("[infinitepay/link] InfinitePay error", {
+        status: res.status,
+        response: rawResponse,
+        payload,
+      });
+
+      const apiMessage =
+        typeof json.message === "string"
+          ? json.message
+          : typeof json.error === "string"
+          ? json.error
+          : rawResponse || "Falha ao criar link InfinitePay";
+
+      return NextResponse.json(
+        {
+          error: apiMessage,
+          infinitePayStatus: res.status,
+        },
+        { status: 502 }
+      );
+    }
+
+    const checkoutUrl =
+      typeof json.url === "string"
+        ? json.url
+        : typeof json.checkout_url === "string"
+        ? json.checkout_url
+        : "";
+
+    if (!checkoutUrl) {
+      console.error("[infinitepay/link] URL não retornada", {
+        response: rawResponse,
+        payload,
+      });
+
+      return NextResponse.json(
+        {
+          error: "A InfinitePay não retornou o link de pagamento",
+        },
+        { status: 502 }
+      );
+    }
+
+    // Registra o lead somente depois que o link foi criado com sucesso.
     await fetch(`${origin}/api/leads`, {
       method: "POST",
       headers: {
@@ -196,51 +167,6 @@ export async function POST(req: NextRequest) {
         etapa: 3,
       }),
     }).catch(() => {});
-
-    const res = await fetch("https://api.checkout.infinitepay.io/links", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      console.error("[infinitepay/link] InfinitePay error", {
-        status: res.status,
-        response: json,
-        orderNsu,
-        totalCents,
-        shippingCents,
-      });
-
-      return NextResponse.json(
-        {
-          error:
-            json?.message ||
-            json?.error ||
-            "Falha ao criar link InfinitePay",
-          details: json,
-        },
-        { status: 502 }
-      );
-    }
-
-    const checkoutUrl = json?.url || json?.checkout_url;
-
-    if (!checkoutUrl) {
-      console.error("[infinitepay/link] URL não retornada", json);
-
-      return NextResponse.json(
-        {
-          error: "A InfinitePay não retornou o link de pagamento",
-          details: json,
-        },
-        { status: 502 }
-      );
-    }
 
     return NextResponse.json({
       success: true,
