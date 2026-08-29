@@ -2,8 +2,7 @@
 
 import Script from "next/script";
 
-const PIXEL_ID = "1049853073957255";
-const PIXEL_ID_2 = "28162540780065698";
+const PIXEL_ID = "2825134687873029";
 
 export default function MetaPixel() {
   return (
@@ -19,7 +18,6 @@ export default function MetaPixel() {
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
           fbq('init', '${PIXEL_ID}');
-          fbq('init', '${PIXEL_ID_2}');
           fbq('track', 'PageView');
         `}
       </Script>
