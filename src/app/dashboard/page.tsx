@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -268,12 +269,18 @@ export default function DashboardPage() {
   const [configLoading, setConfigLoading] = useState(false);
   const [configMsg, setConfigMsg] = useState("");
 
+  // NOVO: estado do cartão
+  const [cardEnabled, setCardEnabled] = useState(false);
+
   async function loadConfig() {
     try {
       const res = await fetch("/api/config", { cache: "no-store" });
       const json = await res.json();
       if (json?.config) {
         setPurchaseOnPixGenerate(Boolean(json.config.purchaseOnPixGenerate));
+
+        // NOVO: carrega configuração do cartão
+        setCardEnabled(Boolean(json.config.cardEnabled));
       }
     } catch {
       /* ignore */
@@ -303,6 +310,39 @@ export default function DashboardPage() {
     } catch {
       setConfigMsg("Erro de conexão");
       setPurchaseOnPixGenerate(!value);
+    } finally {
+      setConfigLoading(false);
+    }
+  }
+
+  // NOVO: salva configuração do cartão
+  async function saveCardToggle(value: boolean) {
+    setConfigLoading(true);
+    setConfigMsg("");
+
+    try {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password,
+          cardEnabled: value,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setConfigMsg(json.error || "Erro ao salvar");
+        setCardEnabled(!value);
+        return;
+      }
+
+      setCardEnabled(Boolean(json.config?.cardEnabled));
+      setConfigMsg("Salvo com sucesso!");
+    } catch {
+      setConfigMsg("Erro de conexão");
+      setCardEnabled(!value);
     } finally {
       setConfigLoading(false);
     }
@@ -975,6 +1015,31 @@ export default function DashboardPage() {
                     </div>
                   </label>
 
+                  {/* NOVO: toggle do cartão */}
+                  <label className="flex items-start gap-3 cursor-pointer select-none mt-5">
+                    <input
+                      type="checkbox"
+                      checked={cardEnabled}
+                      disabled={configLoading}
+                      onChange={(e) => {
+                        const value = e.target.checked;
+                        setCardEnabled(value);
+                        saveCardToggle(value);
+                      }}
+                      className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Aceitar cartão de crédito (InfinitePay)
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {cardEnabled
+                          ? "Ligado: cliente vê opção Cartão (R$ 109,90) na etapa de pagamento."
+                          : "Desligado: só Pix no checkout."}
+                      </p>
+                    </div>
+                  </label>
+
                   {configMsg && (
                     <p
                       className={`mt-3 text-sm ${
@@ -1027,3 +1092,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+```
