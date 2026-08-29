@@ -5,29 +5,23 @@ import { Copy, Check, Loader2 } from "lucide-react";
 import { CheckoutFormData, PixResponse } from "@/types/checkout";
 import { PRODUCT, formatBRL } from "@/lib/product";
 import { trackMetaEvent } from "@/components/MetaPixel";
+import { createEventId, trackMetaCAPI } from "@/lib/meta";
 
 interface Props {
   formData: CheckoutFormData;
   totalAmount: number;
   onBack: () => void;
-  onPixReady?: (ready: boolean) => void;
 }
 
-const PIX_TIMEOUT_SECONDS = 5 * 60;
+const PIX_TIMEOUT_SECONDS = 5 * 60; // 5 minutos
 
 function formatTimer(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export default function Step3Payment({
-  formData,
-  totalAmount,
-  onBack,
-  onPixReady,
-}: Props) {
+export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
   const [pix, setPix] = useState<PixResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,24 +32,18 @@ export default function Step3Payment({
     if (!pix) return;
 
     setSecondsLeft(PIX_TIMEOUT_SECONDS);
-
     const id = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearInterval(id);
           return 0;
         }
-
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(id);
   }, [pix]);
-
-  useEffect(() => {
-    onPixReady?.(!!pix);
-  }, [pix, onPixReady]);
 
   async function generatePix() {
     setLoading(true);
@@ -64,9 +52,7 @@ export default function Step3Payment({
     try {
       const res = await fetch("/api/pix", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: totalAmount,
           customer: {
@@ -90,19 +76,35 @@ export default function Step3Payment({
 
       setPix(json.data);
 
-      trackMetaEvent("Purchase", {
-        content_name: PRODUCT.name,
-        content_ids: "ab-tomic",
-        content_type: "product",
-        currency: "BRL",
+      const eventId = createEventId();
+
+      trackMetaEvent(
+        "Purchase",
+        {
+          content_name: PRODUCT.name,
+          content_ids: "ab-tomic",
+          content_type: "product",
+          currency: "BRL",
+          value: totalAmount / 100,
+        },
+        eventId
+      );
+
+      trackMetaCAPI({
+        eventName: "Purchase",
+        eventId,
         value: totalAmount / 100,
+        currency: "BRL",
+        contentName: PRODUCT.name,
+        contentIds: ["ab-tomic"],
+        email: formData.email,
+        phone: formData.cellphone,
+        name: formData.name,
       });
 
       fetch("/api/leads", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: formData.name,
           email: formData.email,
@@ -115,9 +117,7 @@ export default function Step3Payment({
         }),
       }).catch(() => {});
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "Erro inesperado";
-
+      const message = err instanceof Error ? err.message : "Erro inesperado";
       setError(message);
     } finally {
       setLoading(false);
@@ -126,35 +126,25 @@ export default function Step3Payment({
 
   function copyCode() {
     if (!pix) return;
-
     navigator.clipboard.writeText(pix.brCode);
     setCopied(true);
-
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function handleBack() {
-    setPix(null);
-    onPixReady?.(false);
-    onBack();
-  }
-
+  // Tela "Quase lá..." (dentro do checkout)
   if (pix) {
     const expired = secondsLeft <= 0;
 
     return (
       <div className="px-4 py-8 bg-white min-h-[60vh]">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            Quase lá...
-          </h2>
-
+          <h2 className="text-2xl font-bold text-gray-900">Quase lá...</h2>
           <p className="text-sm text-gray-500 mt-2 leading-relaxed">
             {expired ? (
               <>O tempo para pagar este Pix esgotou.</>
             ) : (
               <>
-                Pague seu Pix dentro{" "}
+                Pague seu Pix dentro de{" "}
                 <strong className="text-gray-800">
                   {formatTimer(secondsLeft)}
                 </strong>{" "}
@@ -165,7 +155,6 @@ export default function Step3Payment({
 
           <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 text-amber-800 text-sm font-medium px-4 py-2 rounded-full">
             {expired ? "Tempo esgotado" : "Aguardando pagamento"}
-
             {!expired && (
               <span className="flex gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
@@ -177,10 +166,7 @@ export default function Step3Payment({
         </div>
 
         <div className="border border-gray-200 rounded-xl p-5 text-center">
-          <p className="text-sm text-gray-600 mb-1">
-            Valor do Pix:
-          </p>
-
+          <p className="text-sm text-gray-600 mb-1">Valor do Pix:</p>
           <p className="text-xl font-bold text-gray-900 mb-4">
             {formatBRL(totalAmount)}
           </p>
@@ -193,13 +179,11 @@ export default function Step3Payment({
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4" />
-                Código copiado!
+                <Check className="w-4 h-4" /> Código copiado!
               </>
             ) : (
               <>
-                <Copy className="w-4 h-4" />
-                Copiar código
+                <Copy className="w-4 h-4" /> Copiar código
               </>
             )}
           </button>
@@ -209,17 +193,12 @@ export default function Step3Payment({
             utiliza o Pix.
             <br />
             Escolha a opção{" "}
-            <strong className="text-[#1e3a8a]">
-              Pix Copia e Cola
-            </strong>{" "}
-            e insira o código copiado.
+            <strong className="text-teal-700">Pix Copia e Cola</strong> e
+            insira o código copiado.
           </p>
 
           <div className="mt-5 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-3">
-              Ou escaneie o QR Code
-            </p>
-
+            <p className="text-xs text-gray-400 mb-3">Ou escaneie o QR Code</p>
             <div className="flex justify-center">
               <img
                 src={pix.brCodeBase64}
@@ -232,7 +211,7 @@ export default function Step3Payment({
 
         <button
           type="button"
-          onClick={handleBack}
+          onClick={onBack}
           className="mt-6 w-full text-sm text-gray-500 underline"
         >
           Voltar
@@ -241,17 +220,16 @@ export default function Step3Payment({
     );
   }
 
+  // Tela inicial — card Pix
   return (
     <div className="px-4 py-6 bg-white">
       <div className="mb-5">
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <span className="w-7 h-7 rounded-full bg-[#1e3a8a] text-white text-sm flex items-center justify-center font-bold">
+          <span className="w-7 h-7 rounded-full bg-teal-600 text-white text-sm flex items-center justify-center font-bold">
             3
           </span>
-
           Pagamento
         </h2>
-
         <p className="text-sm text-gray-500 mt-2">
           Para finalizar seu pedido, escolha a forma de pagamento
         </p>
@@ -260,16 +238,12 @@ export default function Step3Payment({
       <div className="border border-gray-200 rounded-xl p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full border-2 border-[#1e3a8a] flex items-center justify-center">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#1e3a8a]" />
+            <span className="w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center">
+              <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
             </span>
-
-            <span className="font-semibold text-gray-900">
-              Pix
-            </span>
+            <span className="font-semibold text-gray-900">Pix</span>
           </div>
-
-          <span className="text-[10px] font-bold bg-[#1e3a8a]/10 text-[#1e3a8a] px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
             5% de desconto
           </span>
         </div>
@@ -281,16 +255,14 @@ export default function Step3Payment({
 
         <p className="text-sm text-gray-800 mb-4">
           Valor no Pix:{" "}
-          <strong className="text-gray-900">
-            {formatBRL(totalAmount)}
-          </strong>
+          <strong className="text-gray-900">{formatBRL(totalAmount)}</strong>
         </p>
 
         <button
           type="button"
           onClick={generatePix}
           disabled={loading}
-          className="w-full bg-[#1e3a8a] hover:bg-[#172e6b] disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold py-3.5 rounded-lg text-sm tracking-wide transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold py-3.5 rounded-lg text-sm tracking-wide transition-colors flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
