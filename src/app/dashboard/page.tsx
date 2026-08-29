@@ -370,21 +370,49 @@ export default function DashboardPage() {
         return;
       }
 
+      const valor = parseFloat(
+        String(lead.valor || "0")
+          .replace("R$", "")
+          .replace(/\./g, "")
+          .replace(",", ".")
+          .trim()
+      );
+      const value = isNaN(valor) ? 0 : valor;
+
+      const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+      // Pixel (se o fbq estiver carregado na dashboard)
       if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
-        const valor = parseFloat(
-          String(lead.valor || "0")
-            .replace("R$", "")
-            .replace(/\./g, "")
-            .replace(",", ".")
-            .trim()
+        (window as any).fbq(
+          "track",
+          "Purchase",
+          {
+            value,
+            currency: "BRL",
+            content_name: "Aparelho Abdominal AB Tomic",
+            content_ids: ["ab-tomic"],
+            content_type: "product",
+          },
+          { eventID: eventId }
         );
-        (window as any).fbq("track", "Purchase", {
-          value: isNaN(valor) ? 0 : valor,
-          currency: "BRL",
-          content_name: "Mundo Atleta",
-          content_type: "product",
-        });
       }
+
+      // CAPI — evento de compra só quando marcar como pago
+      await fetch("/api/meta/capi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: "Purchase",
+          eventId,
+          value,
+          currency: "BRL",
+          contentName: "Aparelho Abdominal AB Tomic",
+          contentIds: ["ab-tomic"],
+          email: lead.email || undefined,
+          phone: lead.telefone || undefined,
+          name: lead.nome || undefined,
+        }),
+      }).catch(() => {});
 
       await load(password, appliedDateFrom, appliedDateTo);
     } catch (error) {
@@ -847,8 +875,8 @@ export default function DashboardPage() {
                   <strong>Dados:</strong> vêm da planilha Google (Apps Script)
                 </p>
                 <p>
-                  <strong>Marcar pago:</strong> use o botão na lista quando o PIX
-                  cair no extrato do banco
+                  <strong>Marcar pago:</strong> dispara o evento Purchase no Meta
+                  (CAPI)
                 </p>
                 <p>
                   <strong>Filtro:</strong> ao abrir, o período padrão é{" "}
