@@ -111,7 +111,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
           "Purchase",
           {
             content_name: PRODUCT.name,
-            content_ids: ["ab-tomic"],
+            content_ids: "ab-tomic",
             content_type: "product",
             currency: "BRL",
             value,
