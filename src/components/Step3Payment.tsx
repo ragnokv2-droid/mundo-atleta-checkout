@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { CheckoutFormData, PixResponse } from "@/types/checkout";
 import { PRODUCT, formatBRL } from "@/lib/product";
+import { trackMetaEvent } from "@/components/MetaPixel";
+import { createEventId, trackMetaCAPI } from "@/lib/meta";
 
 interface Props {
   formData: CheckoutFormData;
@@ -11,7 +13,7 @@ interface Props {
   onBack: () => void;
 }
 
-const PIX_TIMEOUT_SECONDS = 5 * 60; // 5 minutos
+const PIX_TIMEOUT_SECONDS = 5 * 60;
 
 function formatTimer(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -25,6 +27,18 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(PIX_TIMEOUT_SECONDS);
+  const [purchaseOnPixGenerate, setPurchaseOnPixGenerate] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.config?.purchaseOnPixGenerate === true) {
+          setPurchaseOnPixGenerate(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!pix) return;
@@ -74,7 +88,6 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
       setPix(json.data);
 
-      // Lead: gerou PIX (aguardando pagamento) — sem evento Purchase
       fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -89,6 +102,35 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
           etapa: 3,
         }),
       }).catch(() => {});
+
+      if (purchaseOnPixGenerate) {
+        const eventId = createEventId();
+        const value = totalAmount / 100;
+
+        trackMetaEvent(
+          "Purchase",
+          {
+            content_name: PRODUCT.name,
+            content_ids: ["ab-tomic"],
+            content_type: "product",
+            currency: "BRL",
+            value,
+          },
+          eventId
+        );
+
+        trackMetaCAPI({
+          eventName: "Purchase",
+          eventId,
+          value,
+          currency: "BRL",
+          contentName: PRODUCT.name,
+          contentIds: ["ab-tomic"],
+          email: formData.email,
+          phone: formData.cellphone,
+          name: formData.name,
+        });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Erro inesperado";
       setError(message);
