@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,6 +22,10 @@ import { createEventId, trackMetaCAPI } from "@/lib/meta";
 
 export default function CheckoutPage() {
   const [step, setStep] = useState<Step>(1);
+
+  // Controla se o PIX já foi gerado.
+  // Quando true, escondemos etapas e resumo.
+  const [pixReady, setPixReady] = useState(false);
 
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
@@ -68,6 +73,13 @@ export default function CheckoutPage() {
     });
   }, []);
 
+  // Se sair da etapa 3, garante que a tela de PIX seja resetada.
+  useEffect(() => {
+    if (step !== 3) {
+      setPixReady(false);
+    }
+  }, [step]);
+
   function saveLead(payload: Record<string, string | number>) {
     fetch("/api/leads", {
       method: "POST",
@@ -80,12 +92,20 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto shadow-xl">
       <Header />
       <PromoBanner />
-      <StepIndicator current={step} />
-      <ProductSummary
-        showOriginal={step < 3}
-        shippingPrice={shippingPrice}
-        totalAmount={totalAmount}
-      />
+
+      {/* Etapas e resumo aparecem normalmente.
+          Quando o PIX é gerado, ambos desaparecem. */}
+      {!pixReady && (
+        <>
+          <StepIndicator current={step} />
+
+          <ProductSummary
+            showOriginal={step < 3}
+            shippingPrice={shippingPrice}
+            totalAmount={totalAmount}
+          />
+        </>
+      )}
 
       {step === 1 && (
         <Step1Identification
@@ -102,6 +122,7 @@ export default function CheckoutPage() {
               status: "abandonado_dados",
               etapa: 1,
             });
+
             setStep(2);
           }}
         />
@@ -148,6 +169,7 @@ export default function CheckoutPage() {
               status: "abandonado_frete",
               etapa: 2,
             });
+
             setStep(3);
           }}
           onBack={() => setStep(1)}
@@ -162,9 +184,14 @@ export default function CheckoutPage() {
             shipping: shipping || undefined,
           }}
           totalAmount={totalAmount}
-          onBack={() => setStep(2)}
+          onPixReady={setPixReady}
+          onBack={() => {
+            setPixReady(false);
+            setStep(2);
+          }}
         />
       )}
     </div>
   );
 }
+```
