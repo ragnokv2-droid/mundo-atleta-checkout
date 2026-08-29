@@ -414,7 +414,7 @@ export default function Step3Payment({
                 Cartão de crédito
               </p>
               <p className="text-xs text-gray-500">
-                Até 12x · InfinitePay
+            
               </p>
             </div>
 
