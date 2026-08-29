@@ -15,6 +15,50 @@ interface Props {
 }
 
 const PIX_TIMEOUT_SECONDS = 5 * 60;
+const CARD_PRICE_CENTS = 10990; // R$ 109,90
+
+function getShippingCents(shipping: unknown): number {
+  if (shipping === null || shipping === undefined) return 0;
+
+  if (typeof shipping === "number") {
+    if (!Number.isFinite(shipping) || shipping <= 0) return 0;
+    return shipping < 100 ? Math.round(shipping * 100) : Math.round(shipping);
+  }
+
+  const raw = String(shipping).trim().toLowerCase();
+
+  if (
+    !raw ||
+    raw.includes("grátis") ||
+    raw.includes("gratis") ||
+    raw === "0" ||
+    raw === "0,00" ||
+    raw === "r$ 0,00"
+  ) {
+    return 0;
+  }
+
+  const cleaned = raw
+    .replace(/r\$/g, "")
+    .replace(/\s/g, "")
+    .replace(/[^\d,.-]/g, "");
+
+  if (!cleaned) return 0;
+
+  let value: number;
+
+  if (cleaned.includes(",") && cleaned.includes(".")) {
+    value = Number(cleaned.replace(/\./g, "").replace(",", "."));
+  } else if (cleaned.includes(",")) {
+    value = Number(cleaned.replace(",", "."));
+  } else {
+    value = Number(cleaned);
+  }
+
+  if (!Number.isFinite(value) || value <= 0) return 0;
+
+  return Math.round(value * 100);
+}
 
 function formatTimer(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -40,6 +84,9 @@ export default function Step3Payment({
   const [cardEnabled, setCardEnabled] = useState(false);
   const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
   const [cardLoading, setCardLoading] = useState(false);
+
+  const cardShippingCents = getShippingCents(formData.shipping);
+  const cardTotalAmount = CARD_PRICE_CENTS + cardShippingCents;
 
   useEffect(() => {
     fetch("/api/config", { cache: "no-store" })
@@ -194,6 +241,7 @@ export default function Step3Payment({
             state: formData.state,
           },
           shipping: formData.shipping,
+          totalAmount: cardTotalAmount,
         }),
       });
 
@@ -411,7 +459,7 @@ export default function Step3Payment({
             </div>
 
             <span className="text-sm font-semibold">
-              R$ 109,90
+              {formatBRL(cardTotalAmount)}
             </span>
           </button>
         </div>
