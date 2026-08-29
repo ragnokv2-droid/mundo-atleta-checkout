@@ -66,7 +66,7 @@ async function writeConfig(config: CheckoutConfig) {
     `${CONFIG_PREFIX}.json`,
     JSON.stringify(config, null, 2),
     {
-      access: "public",
+      access: "private",
       contentType: "application/json",
       addRandomSuffix: true,
     }
