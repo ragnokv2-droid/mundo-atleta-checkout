@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { Copy, Check, Loader2 } from "lucide-react";
 import { CheckoutFormData, PixResponse } from "@/types/checkout";
 import { PRODUCT, formatBRL } from "@/lib/product";
-import { trackMetaEvent } from "@/components/MetaPixel";
-import { createEventId, trackMetaCAPI } from "@/lib/meta";
 
 interface Props {
   formData: CheckoutFormData;
@@ -76,32 +74,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
       setPix(json.data);
 
-      const eventId = createEventId();
-
-      trackMetaEvent(
-        "Purchase",
-        {
-          content_name: PRODUCT.name,
-          content_ids: "ab-tomic",
-          content_type: "product",
-          currency: "BRL",
-          value: totalAmount / 100,
-        },
-        eventId
-      );
-
-      trackMetaCAPI({
-        eventName: "Purchase",
-        eventId,
-        value: totalAmount / 100,
-        currency: "BRL",
-        contentName: PRODUCT.name,
-        contentIds: ["ab-tomic"],
-        email: formData.email,
-        phone: formData.cellphone,
-        name: formData.name,
-      });
-
+      // Lead: gerou PIX (aguardando pagamento) — sem evento Purchase
       fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,7 +104,6 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Tela "Quase lá..." (dentro do checkout)
   if (pix) {
     const expired = secondsLeft <= 0;
 
@@ -220,7 +192,6 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     );
   }
 
-  // Tela inicial — card Pix
   return (
     <div className="px-4 py-6 bg-white">
       <div className="mb-5">
