@@ -295,7 +295,7 @@ export default function DashboardPage() {
       const json = await res.json();
       if (!res.ok) {
         setConfigMsg(json.error || "Erro ao salvar");
-        setPurchaseOnPixGenerate(!value); // reverte
+        setPurchaseOnPixGenerate(!value);
         return;
       }
       setPurchaseOnPixGenerate(Boolean(json.config?.purchaseOnPixGenerate));
@@ -537,35 +537,80 @@ export default function DashboardPage() {
 
   if (!authed) {
     return (
-      <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold">
-              MA
-            </div>
-            <div>
-              <p className="font-bold text-gray-900">Mundo Atleta</p>
-              <p className="text-xs text-gray-400">Dashboard</p>
-            </div>
-          </div>
-          <input
-            type="password"
-            placeholder="Senha de acesso"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") entrarComHoje(password);
+      <div className="min-h-screen bg-[#0b1220] flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl" />
+          <div className="absolute -bottom-40 -right-20 w-[28rem] h-[28rem] rounded-full bg-cyan-500/10 blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 1px 1px, #2dd4bf 1px, transparent 0)",
+              backgroundSize: "28px 28px",
             }}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
           />
-          {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-          <button
-            onClick={() => entrarComHoje(password)}
-            disabled={loading || !password}
-            className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-3 rounded-xl disabled:opacity-50"
-          >
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
+        </div>
+
+        <div className="relative w-full max-w-sm">
+          <div className="rounded-2xl border border-teal-500/25 bg-[#0f172a]/90 backdrop-blur-xl shadow-[0_0_40px_rgba(20,184,166,0.12)] p-8">
+            <div className="flex flex-col items-center mb-7">
+              <div className="w-14 h-14 rounded-full bg-teal-500/10 border border-teal-400/40 flex items-center justify-center shadow-[0_0_24px_rgba(45,212,191,0.35)]">
+                <span className="text-teal-300 font-bold text-lg tracking-tight">
+                  MA
+                </span>
+              </div>
+              <h1 className="mt-4 text-white font-semibold text-lg tracking-tight">
+                Mundo Atleta · Dashboard
+              </h1>
+              <div className="mt-2 w-10 h-0.5 rounded-full bg-teal-400/70" />
+            </div>
+
+            <label className="block text-[11px] font-medium text-teal-200/70 uppercase tracking-wider mb-1.5">
+              Senha
+            </label>
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500/70 text-sm">
+                🔒
+              </span>
+              <input
+                type="password"
+                placeholder="Sua senha de acesso"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") entrarComHoje(password);
+                }}
+                className="w-full bg-[#0b1220] border border-slate-700/80 focus:border-teal-400/60 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-teal-500/30 transition"
+              />
+            </div>
+
+            {error && (
+              <p className="mb-3 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-center">
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={() => entrarComHoje(password)}
+              disabled={loading || !password}
+              className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed text-[#0b1220] font-bold py-3.5 rounded-xl text-sm tracking-wide transition shadow-[0_0_20px_rgba(20,184,166,0.35)] flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                "Entrando..."
+              ) : (
+                <>
+                  Entrar
+                  <span className="text-base">→</span>
+                </>
+              )}
+            </button>
+
+            <p className="mt-6 text-center text-[11px] text-slate-500">
+              Seu desempenho. Nossa missão.
+              <br />
+              <span className="text-teal-500/80">Acesso restrito</span>
+            </p>
+          </div>
         </div>
       </div>
     );
