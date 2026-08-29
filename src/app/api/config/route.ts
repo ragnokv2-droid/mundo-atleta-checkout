@@ -3,10 +3,12 @@ import { put, list, del } from "@vercel/blob";
 
 export type CheckoutConfig = {
   purchaseOnPixGenerate: boolean;
+  cardEnabled: boolean;
 };
 
 const DEFAULT_CONFIG: CheckoutConfig = {
   purchaseOnPixGenerate: false,
+  cardEnabled: false,
 };
 
 const CONFIG_PREFIX = "checkout-config";
@@ -29,6 +31,7 @@ async function readConfig(): Promise<CheckoutConfig> {
     return {
       ...DEFAULT_CONFIG,
       purchaseOnPixGenerate: Boolean(json.purchaseOnPixGenerate),
+      cardEnabled: Boolean(json.cardEnabled),
     };
   } catch (err) {
     console.error("[config] readConfig error:", err);
@@ -89,6 +92,10 @@ export async function POST(req: NextRequest) {
         typeof body.purchaseOnPixGenerate === "boolean"
           ? body.purchaseOnPixGenerate
           : current.purchaseOnPixGenerate,
+      cardEnabled:
+        typeof body.cardEnabled === "boolean"
+          ? body.cardEnabled
+          : current.cardEnabled,
     };
 
     await writeConfig(next);
