@@ -11,6 +11,7 @@ interface Props {
   formData: CheckoutFormData;
   totalAmount: number;
   onBack: () => void;
+  onPixReady?: (ready: boolean) => void;
 }
 
 const PIX_TIMEOUT_SECONDS = 5 * 60;
@@ -18,10 +19,16 @@ const PIX_TIMEOUT_SECONDS = 5 * 60;
 function formatTimer(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
+
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
+export default function Step3Payment({
+  formData,
+  totalAmount,
+  onBack,
+  onPixReady,
+}: Props) {
   const [pix, setPix] = useState<PixResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,18 +51,26 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     if (!pix) return;
 
     setSecondsLeft(PIX_TIMEOUT_SECONDS);
+
     const id = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearInterval(id);
           return 0;
         }
+
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(id);
   }, [pix]);
+
+  // Informa ao page.tsx quando o PIX foi gerado.
+  // Isso faz o StepIndicator e o ProductSummary desaparecerem.
+  useEffect(() => {
+    onPixReady?.(!!pix);
+  }, [pix, onPixReady]);
 
   async function generatePix() {
     setLoading(true);
@@ -86,6 +101,8 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
         throw new Error(json.error || "Erro ao gerar PIX");
       }
 
+      // Ao definir o PIX, o useEffect acima avisa o page.tsx
+      // para esconder as etapas e o resumo.
       setPix(json.data);
 
       fetch("/api/leads", {
@@ -132,7 +149,9 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
         });
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Erro inesperado";
+      const message =
+        err instanceof Error ? err.message : "Erro inesperado";
+
       setError(message);
     } finally {
       setLoading(false);
@@ -141,24 +160,37 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
   function copyCode() {
     if (!pix) return;
+
     navigator.clipboard.writeText(pix.brCode);
     setCopied(true);
+
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function handleBack() {
+    setPix(null);
+    onPixReady?.(false);
+    onBack();
+  }
+
+  // Tela "Quase lá..." depois que o PIX foi gerado.
+  // O page.tsx já esconde StepIndicator e ProductSummary.
   if (pix) {
     const expired = secondsLeft <= 0;
 
     return (
       <div className="px-4 py-8 bg-white min-h-[60vh]">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Quase lá...</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Quase lá...
+          </h2>
+
           <p className="text-sm text-gray-500 mt-2 leading-relaxed">
             {expired ? (
               <>O tempo para pagar este Pix esgotou.</>
             ) : (
               <>
-                Pague seu Pix dentro de{" "}
+                Pague seu Pix dentro{" "}
                 <strong className="text-gray-800">
                   {formatTimer(secondsLeft)}
                 </strong>{" "}
@@ -169,6 +201,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
           <div className="mt-4 inline-flex items-center gap-2 bg-amber-50 text-amber-800 text-sm font-medium px-4 py-2 rounded-full">
             {expired ? "Tempo esgotado" : "Aguardando pagamento"}
+
             {!expired && (
               <span className="flex gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
@@ -180,7 +213,10 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
         </div>
 
         <div className="border border-gray-200 rounded-xl p-5 text-center">
-          <p className="text-sm text-gray-600 mb-1">Valor do Pix:</p>
+          <p className="text-sm text-gray-600 mb-1">
+            Valor do Pix:
+          </p>
+
           <p className="text-xl font-bold text-gray-900 mb-4">
             {formatBRL(totalAmount)}
           </p>
@@ -193,11 +229,13 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4" /> Código copiado!
+                <Check className="w-4 h-4" />
+                Código copiado!
               </>
             ) : (
               <>
-                <Copy className="w-4 h-4" /> Copiar código
+                <Copy className="w-4 h-4" />
+                Copiar código
               </>
             )}
           </button>
@@ -207,12 +245,17 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
             utiliza o Pix.
             <br />
             Escolha a opção{" "}
-            <strong className="text-teal-700">Pix Copia e Cola</strong> e
-            insira o código copiado.
+            <strong className="text-teal-700">
+              Pix Copia e Cola
+            </strong>{" "}
+            e insira o código copiado.
           </p>
 
           <div className="mt-5 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-3">Ou escaneie o QR Code</p>
+            <p className="text-xs text-gray-400 mb-3">
+              Ou escaneie o QR Code
+            </p>
+
             <div className="flex justify-center">
               <img
                 src={pix.brCodeBase64}
@@ -225,7 +268,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
         <button
           type="button"
-          onClick={onBack}
+          onClick={handleBack}
           className="mt-6 w-full text-sm text-gray-500 underline"
         >
           Voltar
@@ -234,6 +277,7 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
     );
   }
 
+  // Tela inicial do pagamento.
   return (
     <div className="px-4 py-6 bg-white">
       <div className="mb-5">
@@ -241,8 +285,10 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
           <span className="w-7 h-7 rounded-full bg-teal-600 text-white text-sm flex items-center justify-center font-bold">
             3
           </span>
+
           Pagamento
         </h2>
+
         <p className="text-sm text-gray-500 mt-2">
           Para finalizar seu pedido, escolha a forma de pagamento
         </p>
@@ -254,8 +300,12 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
             <span className="w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center">
               <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
             </span>
-            <span className="font-semibold text-gray-900">Pix</span>
+
+            <span className="font-semibold text-gray-900">
+              Pix
+            </span>
           </div>
+
           <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
             5% de desconto
           </span>
@@ -268,7 +318,9 @@ export default function Step3Payment({ formData, totalAmount, onBack }: Props) {
 
         <p className="text-sm text-gray-800 mb-4">
           Valor no Pix:{" "}
-          <strong className="text-gray-900">{formatBRL(totalAmount)}</strong>
+          <strong className="text-gray-900">
+            {formatBRL(totalAmount)}
+          </strong>
         </p>
 
         <button
