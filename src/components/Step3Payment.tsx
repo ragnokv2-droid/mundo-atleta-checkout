@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -36,12 +37,22 @@ export default function Step3Payment({
   const [secondsLeft, setSecondsLeft] = useState(PIX_TIMEOUT_SECONDS);
   const [purchaseOnPixGenerate, setPurchaseOnPixGenerate] = useState(false);
 
+  // NOVO: configurações do cartão
+  const [cardEnabled, setCardEnabled] = useState(false);
+  const [payMethod, setPayMethod] = useState<"pix" | "card">("pix");
+  const [cardLoading, setCardLoading] = useState(false);
+
   useEffect(() => {
     fetch("/api/config", { cache: "no-store" })
       .then((r) => r.json())
       .then((json) => {
         if (json?.config?.purchaseOnPixGenerate === true) {
           setPurchaseOnPixGenerate(true);
+        }
+
+        // NOVO: verifica se cartão está habilitado
+        if (json?.config?.cardEnabled === true) {
+          setCardEnabled(true);
         }
       })
       .catch(() => {});
@@ -155,6 +166,48 @@ export default function Step3Payment({
       setError(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // NOVO: pagamento com cartão via InfinitePay
+  async function payWithCard() {
+    setCardLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/infinitepay/link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: {
+            name: formData.name,
+            email: formData.email,
+            cellphone: formData.cellphone,
+            taxId: formData.taxId,
+          },
+          address: {
+            zipCode: formData.zipCode,
+            street: formData.street,
+            number: formData.number,
+            complement: formData.complement,
+            neighborhood: formData.neighborhood,
+            city: formData.city,
+            state: formData.state,
+          },
+          shipping: formData.shipping,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.url) {
+        throw new Error(json.error || "Erro ao gerar link de cartão");
+      }
+
+      window.location.href = json.url;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro inesperado");
+      setCardLoading(false);
     }
   }
 
@@ -294,50 +347,141 @@ export default function Step3Payment({
         </p>
       </div>
 
-      <div className="border border-gray-200 rounded-xl p-4">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+      {/* NOVO: Seletor de método de pagamento */}
+      {cardEnabled && (
+        <div className="space-y-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setPayMethod("pix")}
+            className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left ${
+              payMethod === "pix"
+                ? "border-teal-600 bg-teal-50"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <span
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                payMethod === "pix"
+                  ? "border-teal-600"
+                  : "border-gray-300"
+              }`}
+            >
+              {payMethod === "pix" && (
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+              )}
             </span>
 
-            <span className="font-semibold text-gray-900">
-              Pix
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-900">Pix</p>
+              <p className="text-xs text-gray-500">5% de desconto</p>
+            </div>
+
+            <span className="text-sm font-semibold">
+              {formatBRL(totalAmount)}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPayMethod("card")}
+            className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left ${
+              payMethod === "card"
+                ? "border-teal-600 bg-teal-50"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <span
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                payMethod === "card"
+                  ? "border-teal-600"
+                  : "border-gray-300"
+              }`}
+            >
+              {payMethod === "card" && (
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+              )}
+            </span>
+
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-gray-900">
+                Cartão de crédito
+              </p>
+              <p className="text-xs text-gray-500">
+                Até 12x · InfinitePay
+              </p>
+            </div>
+
+            <span className="text-sm font-semibold">
+              R$ 109,90
+            </span>
+          </button>
+        </div>
+      )}
+
+      <div className="border border-gray-200 rounded-xl p-4">
+        {/* Mantido o card original quando o cartão não está habilitado.
+            Quando habilitado, o seletor acima passa a mostrar os métodos. */}
+        {!cardEnabled && (
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full border-2 border-teal-600 flex items-center justify-center">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+              </span>
+
+              <span className="font-semibold text-gray-900">
+                Pix
+              </span>
+            </div>
+
+            <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
+              5% de desconto
             </span>
           </div>
+        )}
 
-          <span className="text-[10px] font-bold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
-            5% de desconto
-          </span>
-        </div>
+        {!cardEnabled && (
+          <p className="text-sm text-gray-500 leading-relaxed mb-3">
+            A confirmação de pagamento é realizada em poucos minutos. Utilize o
+            aplicativo do seu banco para pagar.
+          </p>
+        )}
 
-        <p className="text-sm text-gray-500 leading-relaxed mb-3">
-          A confirmação de pagamento é realizada em poucos minutos. Utilize o
-          aplicativo do seu banco para pagar.
-        </p>
+        {!cardEnabled && (
+          <p className="text-sm text-gray-800 mb-4">
+            Valor no Pix:{" "}
+            <strong className="text-gray-900">
+              {formatBRL(totalAmount)}
+            </strong>
+          </p>
+        )}
 
-        <p className="text-sm text-gray-800 mb-4">
-          Valor no Pix:{" "}
-          <strong className="text-gray-900">
-            {formatBRL(totalAmount)}
-          </strong>
-        </p>
-
-        <button
-          type="button"
-          onClick={generatePix}
-          disabled={loading}
-          className="w-full bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold py-3.5 rounded-lg text-sm tracking-wide transition-colors flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Gerando PIX...
-            </>
-          ) : (
-            "FINALIZAR COMPRA"
-          )}
-        </button>
+        {/* NOVO: botão de ação conforme método selecionado */}
+        {payMethod === "pix" || !cardEnabled ? (
+          <button
+            type="button"
+            onClick={generatePix}
+            disabled={loading}
+            className="w-full bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold py-3.5 rounded-lg text-sm tracking-wide transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Gerando PIX...
+              </>
+            ) : (
+              "FINALIZAR COMPRA"
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={payWithCard}
+            disabled={cardLoading}
+            className="w-full bg-teal-700 hover:bg-teal-800 disabled:bg-gray-300 text-white font-bold py-3.5 rounded-lg text-sm"
+          >
+            {cardLoading ? "Redirecionando..." : "PAGAR COM CARTÃO"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -356,3 +500,4 @@ export default function Step3Payment({
     </div>
   );
 }
+```
