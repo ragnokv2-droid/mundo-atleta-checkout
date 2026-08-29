@@ -17,10 +17,10 @@ import {
 } from "@/types/checkout";
 import { PRODUCT } from "@/lib/product";
 import { trackMetaEvent } from "@/components/MetaPixel";
+import { createEventId, trackMetaCAPI } from "@/lib/meta";
 
 export default function CheckoutPage() {
   const [step, setStep] = useState<Step>(1);
-  const [pixReady, setPixReady] = useState(false);
 
   const [customer, setCustomer] = useState<CustomerData>({
     name: "",
@@ -47,17 +47,26 @@ export default function CheckoutPage() {
   const totalAmount = PRODUCT.pixPrice + shippingPrice;
 
   useEffect(() => {
-    trackMetaEvent("InitiateCheckout", {
-      content_name: PRODUCT.name,
-      currency: "BRL",
+    const eventId = createEventId();
+
+    trackMetaEvent(
+      "InitiateCheckout",
+      {
+        content_name: PRODUCT.name,
+        currency: "BRL",
+        value: PRODUCT.pixPrice / 100,
+      },
+      eventId
+    );
+
+    trackMetaCAPI({
+      eventName: "InitiateCheckout",
+      eventId,
       value: PRODUCT.pixPrice / 100,
+      currency: "BRL",
+      contentName: PRODUCT.name,
     });
   }, []);
-
-  // Se sair da etapa 3, reseta a tela do PIX
-  useEffect(() => {
-    if (step !== 3) setPixReady(false);
-  }, [step]);
 
   function saveLead(payload: Record<string, string | number>) {
     fetch("/api/leads", {
@@ -71,18 +80,12 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto shadow-xl">
       <Header />
       <PromoBanner />
-
-      {/* Some etapas e resumo na tela de copiar PIX */}
-      {!pixReady && (
-        <>
-          <StepIndicator current={step} />
-          <ProductSummary
-            showOriginal={step < 3}
-            shippingPrice={shippingPrice}
-            totalAmount={totalAmount}
-          />
-        </>
-      )}
+      <StepIndicator current={step} />
+      <ProductSummary
+        showOriginal={step < 3}
+        shippingPrice={shippingPrice}
+        totalAmount={totalAmount}
+      />
 
       {step === 1 && (
         <Step1Identification
@@ -112,11 +115,29 @@ export default function CheckoutPage() {
           onShippingChange={setShipping}
           customerName={customer.name}
           onNext={() => {
-            trackMetaEvent("AddPaymentInfo", {
-              content_name: PRODUCT.name,
-              currency: "BRL",
+            const eventId = createEventId();
+
+            trackMetaEvent(
+              "AddPaymentInfo",
+              {
+                content_name: PRODUCT.name,
+                currency: "BRL",
+                value: totalAmount / 100,
+              },
+              eventId
+            );
+
+            trackMetaCAPI({
+              eventName: "AddPaymentInfo",
+              eventId,
               value: totalAmount / 100,
+              currency: "BRL",
+              contentName: PRODUCT.name,
+              email: customer.email,
+              phone: customer.cellphone,
+              name: customer.name,
             });
+
             saveLead({
               nome: customer.name,
               email: customer.email,
@@ -141,11 +162,7 @@ export default function CheckoutPage() {
             shipping: shipping || undefined,
           }}
           totalAmount={totalAmount}
-          onPixReady={setPixReady}
-          onBack={() => {
-            setPixReady(false);
-            setStep(2);
-          }}
+          onBack={() => setStep(2)}
         />
       )}
     </div>
