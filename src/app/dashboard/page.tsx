@@ -264,6 +264,50 @@ export default function DashboardPage() {
   const [appliedDateTo, setAppliedDateTo] = useState("");
   const [preset, setPreset] = useState<Preset>("");
 
+  const [purchaseOnPixGenerate, setPurchaseOnPixGenerate] = useState(false);
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configMsg, setConfigMsg] = useState("");
+
+  async function loadConfig() {
+    try {
+      const res = await fetch("/api/config", { cache: "no-store" });
+      const json = await res.json();
+      if (json?.config) {
+        setPurchaseOnPixGenerate(Boolean(json.config.purchaseOnPixGenerate));
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function savePurchaseToggle(value: boolean) {
+    setConfigLoading(true);
+    setConfigMsg("");
+    try {
+      const res = await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password,
+          purchaseOnPixGenerate: value,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setConfigMsg(json.error || "Erro ao salvar");
+        setPurchaseOnPixGenerate(!value); // reverte
+        return;
+      }
+      setPurchaseOnPixGenerate(Boolean(json.config?.purchaseOnPixGenerate));
+      setConfigMsg("Salvo com sucesso!");
+    } catch {
+      setConfigMsg("Erro de conexão");
+      setPurchaseOnPixGenerate(!value);
+    } finally {
+      setConfigLoading(false);
+    }
+  }
+
   async function load(pwd: string, from = appliedDateFrom, to = appliedDateTo) {
     setLoading(true);
     setError("");
@@ -288,6 +332,7 @@ export default function DashboardPage() {
       setRecentes(json.recentes || []);
       setAuthed(true);
       sessionStorage.setItem("dash_pwd", pwd);
+      loadConfig();
     } catch {
       setError("Erro de conexão");
     } finally {
@@ -381,7 +426,6 @@ export default function DashboardPage() {
 
       const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
-      // Pixel (se o fbq estiver carregado na dashboard)
       if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
         (window as any).fbq(
           "track",
@@ -397,7 +441,6 @@ export default function DashboardPage() {
         );
       }
 
-      // CAPI — evento de compra só quando marcar como pago
       await fetch("/api/meta/capi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -861,37 +904,88 @@ export default function DashboardPage() {
             <>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Configurações</h1>
-                <p className="text-sm text-gray-500">Informações do painel</p>
+                <p className="text-sm text-gray-500">
+                  Informações do painel e eventos Meta
+                </p>
               </div>
-              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-3 text-sm text-gray-600">
-                <p>
-                  <strong>Senha:</strong> definida em{" "}
-                  <code className="text-xs bg-gray-50 px-1 rounded">
-                    DASHBOARD_PASSWORD
-                  </code>{" "}
-                  na Vercel
-                </p>
-                <p>
-                  <strong>Dados:</strong> vêm da planilha Google (Apps Script)
-                </p>
-                <p>
-                  <strong>Marcar pago:</strong> dispara o evento Purchase no Meta
-                  (CAPI)
-                </p>
-                <p>
-                  <strong>Filtro:</strong> ao abrir, o período padrão é{" "}
-                  <strong>Hoje</strong>
-                </p>
-                <button
-                  onClick={() => {
-                    sessionStorage.removeItem("dash_pwd");
-                    setAuthed(false);
-                    setPassword("");
-                  }}
-                  className="mt-2 text-sm text-red-600 font-medium"
-                >
-                  Sair do dashboard
-                </button>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-5 max-w-xl">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 mb-1">
+                    Evento Purchase (Compra)
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Escolha quando o evento de compra é enviado para o Meta Ads.
+                  </p>
+
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={purchaseOnPixGenerate}
+                      disabled={configLoading}
+                      onChange={(e) => {
+                        const value = e.target.checked;
+                        setPurchaseOnPixGenerate(value);
+                        savePurchaseToggle(value);
+                      }}
+                      className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Enviar Purchase ao gerar o PIX
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {purchaseOnPixGenerate
+                          ? "Ligado: manda Purchase na hora que o cliente gera o PIX."
+                          : "Desligado: manda Purchase somente quando você clica em “Marcar pago”."}
+                      </p>
+                    </div>
+                  </label>
+
+                  {configMsg && (
+                    <p
+                      className={`mt-3 text-sm ${
+                        configMsg.includes("sucesso")
+                          ? "text-teal-700"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {configMsg}
+                    </p>
+                  )}
+                </div>
+
+                <hr className="border-gray-100" />
+
+                <div className="space-y-3 text-sm text-gray-600">
+                  <p>
+                    <strong>Senha:</strong> definida em{" "}
+                    <code className="text-xs bg-gray-50 px-1 rounded">
+                      DASHBOARD_PASSWORD
+                    </code>{" "}
+                    na Vercel
+                  </p>
+                  <p>
+                    <strong>Dados:</strong> vêm da planilha Google (Apps Script)
+                  </p>
+                  <p>
+                    <strong>Marcar pago:</strong> sempre dispara Purchase (CAPI)
+                  </p>
+                  <p>
+                    <strong>Filtro:</strong> ao abrir, o período padrão é{" "}
+                    <strong>Hoje</strong>
+                  </p>
+                  <button
+                    onClick={() => {
+                      sessionStorage.removeItem("dash_pwd");
+                      setAuthed(false);
+                      setPassword("");
+                    }}
+                    className="mt-2 text-sm text-red-600 font-medium"
+                  >
+                    Sair do dashboard
+                  </button>
+                </div>
               </div>
             </>
           )}
