@@ -38,21 +38,31 @@ async function readConfig(): Promise<CheckoutConfig> {
     if (!res.ok) return DEFAULT_CONFIG;
     const json = await res.json();
     return { ...DEFAULT_CONFIG, ...json };
-  } catch {
+  } catch (err) {
+    console.error("[config] readConfig error:", err);
     return DEFAULT_CONFIG;
   }
 }
 
 async function writeConfig(config: CheckoutConfig) {
-  // apaga configs antigas para não acumular
+  // tenta limpar arquivos antigos (não trava se falhar)
   try {
     const { blobs } = await list({ prefix: CONFIG_PREFIX, limit: 50 });
-    await Promise.all(blobs.map((b) => del(b.url)));
-  } catch {
-    // ignore
+    if (blobs.length > 0) {
+      await Promise.all(
+        blobs.map((b) =>
+          del(b.url).catch((e) =>
+            console.warn("[config] del failed:", b.pathname, e)
+          )
+        )
+      );
+    }
+  } catch (err) {
+    console.warn("[config] list/del cleanup error:", err);
   }
 
-  await put(
+  // grava o novo (sempre com sufixo aleatório para evitar conflito)
+  const blob = await put(
     `${CONFIG_PREFIX}.json`,
     JSON.stringify(config, null, 2),
     {
@@ -61,6 +71,9 @@ async function writeConfig(config: CheckoutConfig) {
       addRandomSuffix: true,
     }
   );
+
+  console.log("[config] written:", blob.url);
+  return blob;
 }
 
 /** Público — checkout lê sem senha */
@@ -91,11 +104,14 @@ export async function POST(req: NextRequest) {
     };
 
     await writeConfig(next);
+
     return NextResponse.json({ ok: true, config: next });
-  } catch (err) {
-    console.error(err);
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Erro desconhecido ao salvar config";
+    console.error("[config] POST error:", err);
     return NextResponse.json(
-      { error: "Erro ao salvar config" },
+      { error: message },
       { status: 500 }
     );
   }
