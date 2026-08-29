@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -500,4 +499,3 @@ export default function Step3Payment({
     </div>
   );
 }
-```
