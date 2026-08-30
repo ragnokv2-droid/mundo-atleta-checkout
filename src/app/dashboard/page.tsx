@@ -267,8 +267,6 @@ export default function DashboardPage() {
   const [purchaseOnPixGenerate, setPurchaseOnPixGenerate] = useState(false);
   const [configLoading, setConfigLoading] = useState(false);
   const [configMsg, setConfigMsg] = useState("");
-
-  // NOVO: estado do cartão
   const [cardEnabled, setCardEnabled] = useState(false);
 
   async function loadConfig() {
@@ -277,8 +275,6 @@ export default function DashboardPage() {
       const json = await res.json();
       if (json?.config) {
         setPurchaseOnPixGenerate(Boolean(json.config.purchaseOnPixGenerate));
-
-        // NOVO: carrega configuração do cartão
         setCardEnabled(Boolean(json.config.cardEnabled));
       }
     } catch {
@@ -314,7 +310,6 @@ export default function DashboardPage() {
     }
   }
 
-  // NOVO: salva configuração do cartão
   async function saveCardToggle(value: boolean) {
     setConfigLoading(true);
     setConfigMsg("");
@@ -445,7 +440,12 @@ export default function DashboardPage() {
       const res = await fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, row: lead.row }),
+        body: JSON.stringify({
+          password,
+          row: lead.row,
+          nome: lead.nome,
+          valor: lead.valor,
+        }),
       });
       const json = await res.json();
 
@@ -573,13 +573,11 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  if (!authed) {
+    if (!authed) {
     return (
       <div className="min-h-screen bg-[#f4f6f8] flex items-center justify-center p-4">
         <div className="w-full max-w-sm">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-            {/* Logo */}
             <div className="flex items-center gap-3 mb-8">
               <div className="w-11 h-11 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-sm">
                 MA
@@ -1014,7 +1012,6 @@ export default function DashboardPage() {
                     </div>
                   </label>
 
-                  {/* NOVO: toggle do cartão */}
                   <label className="flex items-start gap-3 cursor-pointer select-none mt-5">
                     <input
                       type="checkbox"
