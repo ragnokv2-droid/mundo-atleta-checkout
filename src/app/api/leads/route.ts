@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { formatMoneyLabel, sendPushNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,17 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+
+    const status = String(body.status || "").toLowerCase();
+    const valor = formatMoneyLabel(body.valor);
+
+    if (status === "aguardando_pix") {
+      sendPushNotification({
+        title: "PIX Gerado!",
+        body: `Valor: ${valor}`,
+        data: { type: "pix_gerado", status },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
