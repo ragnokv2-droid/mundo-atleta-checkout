@@ -50,7 +50,6 @@ function parseData(valor: unknown): Date | null {
   const texto = String(valor).trim();
   if (!texto) return null;
 
-  // DD/MM/YYYY [HH:mm[:ss]]
   const br = texto.match(
     /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/
   );
@@ -67,7 +66,6 @@ function parseData(valor: unknown): Date | null {
     return Number.isNaN(data.getTime()) ? null : data;
   }
 
-  // YYYY-MM-DD [THH:mm:ss]
   const iso = texto.match(
     /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/
   );
@@ -287,7 +285,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { password, row } = body;
+    const { password, row, nome, valor } = body;
     const expected = process.env.DASHBOARD_PASSWORD || "mundoatleta";
 
     if (password !== expected) {
@@ -302,6 +300,20 @@ export async function POST(req: NextRequest) {
     const url = `${webhook}?action=mark_paid&row=${row}`;
     const res = await fetch(url, { cache: "no-store" });
     const json = await res.json();
+
+    try {
+      const { sendPushNotification, formatMoneyLabel } = await import(
+        "@/lib/notify"
+      );
+      await sendPushNotification({
+        title: "Venda Aprovada!",
+        body: `Valor: ${formatMoneyLabel(valor)}`,
+        data: { type: "pix_aprovado", row: String(row) },
+      });
+    } catch (e) {
+      console.error("[dashboard] notify error", e);
+    }
+
     return NextResponse.json(json);
   } catch (err) {
     console.error("Erro ao marcar pago:", err);
