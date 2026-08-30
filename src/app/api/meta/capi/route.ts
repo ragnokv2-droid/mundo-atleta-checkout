@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-
-function sha256(value: string) {
-  return crypto
-    .createHash("sha256")
-    .update(value.trim().toLowerCase())
-    .digest("hex");
-}
-
-function onlyDigits(value: string) {
-  return value.replace(/\D/g, "");
-}
+import { ParamBuilder } from "capi-param-builder-nodejs";
 
 type CapiBody = {
   eventName: string;
@@ -28,6 +17,10 @@ type CapiBody = {
   userAgent?: string;
 };
 
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const pixelId = process.env.META_PIXEL_ID;
@@ -35,7 +28,10 @@ export async function POST(req: NextRequest) {
 
     if (!pixelId || !token) {
       return NextResponse.json(
-        { error: "META_PIXEL_ID ou META_CAPI_ACCESS_TOKEN não configurados" },
+        {
+          error:
+            "META_PIXEL_ID ou META_CAPI_ACCESS_TOKEN não configurados",
+        },
         { status: 500 }
       );
     }
@@ -49,36 +45,179 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const forwardedFor = req.headers.get("x-forwarded-for");
     const clientIp =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      forwardedFor?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
       undefined;
 
     const userAgent =
-      body.userAgent || req.headers.get("user-agent") || undefined;
+      body.userAgent ||
+      req.headers.get("user-agent") ||
+      undefined;
 
-    const userData: Record<string, string | string[] | undefined> = {
-      client_ip_address: clientIp,
+    const host =
+      req.headers.get("host") ||
+      new URL(req.url).hostname;
+
+    const referer =
+      req.headers.get("referer") ||
+      undefined;
+
+    const queryParams: Record<string, string> = {};
+
+    try {
+      const requestUrl = new URL(body.sourceUrl || req.url);
+
+      requestUrl.searchParams.forEach((value, key) => {
+        queryParams[key] = value;
+      });
+    } catch {
+      // ignora URL inválida
+    }
+
+    const cookies: Record<string, string> = {};
+
+    req.cookies.getAll().forEach((cookie) => {
+      cookies[cookie.name] = cookie.value;
+    });
+
+    const builder = new ParamBuilder();
+
+    try {
+      builder.processRequest(
+        host,
+        queryParams,
+        cookies,
+        referer,
+        forwardedFor || null,
+        clientIp || null
+      );
+    } catch (error) {
+      console.warn(
+        "[CAPI] Parameter Builder processRequest falhou, usando fallback:",
+        error
+      );
+    }
+
+    const builderFbp = builder.getFbp?.() || undefined;
+    const builderFbc = builder.getFbc?.() || undefined;
+    const builderIp =
+      builder.getClientIpAddress?.() || undefined;
+
+    const userData: Record<
+      string,
+      string | string[] | undefined
+    > = {
+      client_ip_address:
+        builderIp || clientIp,
       client_user_agent: userAgent,
-      fbp: body.fbp || undefined,
-      fbc: body.fbc || undefined,
+
+      // mantém prioridade para os cookies já capturados no navegador
+      fbp:
+        body.fbp ||
+        builderFbp ||
+        cookies["_fbp"] ||
+        undefined,
+
+      fbc:
+        body.fbc ||
+        builderFbc ||
+        cookies["_fbc"] ||
+        undefined,
     };
 
     if (body.email) {
-      userData.em = [sha256(body.email)];
+      try {
+        const hashedEmail =
+          builder.getNormalizedAndHashedPII(
+            body.email,
+            "email"
+          );
+
+        if (hashedEmail) {
+          userData.em = [hashedEmail];
+        }
+      } catch (error) {
+        console.warn(
+          "[CAPI] Falha ao processar email:",
+          error
+        );
+      }
     }
 
     if (body.phone) {
-      let phone = onlyDigits(body.phone);
-      if (phone && !phone.startsWith("55")) phone = `55${phone}`;
-      if (phone) userData.ph = [sha256(phone)];
+      try {
+        let phone = onlyDigits(body.phone);
+
+        if (phone && !phone.startsWith("55")) {
+          phone = `55${phone}`;
+        }
+
+        if (phone) {
+          const hashedPhone =
+            builder.getNormalizedAndHashedPII(
+              phone,
+              "phone"
+            );
+
+          if (hashedPhone) {
+            userData.ph = [hashedPhone];
+          }
+        }
+      } catch (error) {
+        console.warn(
+          "[CAPI] Falha ao processar telefone:",
+          error
+        );
+      }
     }
 
     if (body.name) {
-      const parts = body.name.trim().split(/\s+/);
-      if (parts[0]) userData.fn = [sha256(parts[0])];
+      const parts = body.name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      if (parts[0]) {
+        try {
+          const hashedFirstName =
+            builder.getNormalizedAndHashedPII(
+              parts[0],
+              "first_name"
+            );
+
+          if (hashedFirstName) {
+            userData.fn = [hashedFirstName];
+          }
+        } catch (error) {
+          console.warn(
+            "[CAPI] Falha ao processar primeiro nome:",
+            error
+          );
+        }
+      }
+
       if (parts.length > 1) {
-        userData.ln = [sha256(parts[parts.length - 1])];
+        try {
+          const lastName =
+            parts[parts.length - 1];
+
+          const hashedLastName =
+            builder.getNormalizedAndHashedPII(
+              lastName,
+              "last_name"
+            );
+
+          if (hashedLastName) {
+            userData.ln = [hashedLastName];
+          }
+        } catch (error) {
+          console.warn(
+            "[CAPI] Falha ao processar sobrenome:",
+            error
+          );
+        }
       }
     }
 
@@ -89,53 +228,97 @@ export async function POST(req: NextRequest) {
     if (typeof body.value === "number") {
       customData.value = body.value;
     }
+
     if (body.contentName) {
-      customData.content_name = body.contentName;
+      customData.content_name =
+        body.contentName;
     }
+
     if (body.contentIds?.length) {
-      customData.content_ids = body.contentIds;
+      customData.content_ids =
+        body.contentIds;
       customData.content_type = "product";
     }
 
-    const event = {
+    const event: Record<string, unknown> = {
       event_name: body.eventName,
       event_time: Math.floor(Date.now() / 1000),
       event_id: body.eventId,
-      event_source_url: body.sourceUrl || undefined,
+
+      event_source_url:
+        body.sourceUrl || undefined,
+
       action_source: "website",
       user_data: userData,
       custom_data: customData,
     };
 
-    const payload: Record<string, unknown> = {
+    const referrerUrl =
+      builder.getReferrerUrl?.();
+
+    if (referrerUrl) {
+      event.referrer_url = referrerUrl;
+    }
+
+    const payload: Record<
+      string,
+      unknown
+    > = {
       data: [event],
     };
 
-    if (process.env.META_TEST_EVENT_CODE) {
-      payload.test_event_code = process.env.META_TEST_EVENT_CODE;
+    if (
+      process.env.META_TEST_EVENT_CODE
+    ) {
+      payload.test_event_code =
+        process.env.META_TEST_EVENT_CODE;
     }
 
-    const url = `https://graph.facebook.com/v21.0/${pixelId}/events?access_token=${token}`;
+    const url =
+      `https://graph.facebook.com/v21.0/${pixelId}/events?access_token=${encodeURIComponent(
+        token
+      )}`;
 
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
       body: JSON.stringify(payload),
     });
 
     const json = await res.json();
 
     if (!res.ok) {
-      console.error("[CAPI] erro Meta:", json);
+      console.error(
+        "[CAPI] erro Meta:",
+        json
+      );
+
       return NextResponse.json(
-        { error: "Falha ao enviar evento CAPI", details: json },
+        {
+          error:
+            "Falha ao enviar evento CAPI",
+          details: json,
+        },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ ok: true, result: json });
+    return NextResponse.json({
+      ok: true,
+      result: json,
+    });
   } catch (err) {
-    console.error("[CAPI] exception:", err);
-    return NextResponse.json({ error: "Erro interno CAPI" }, { status: 500 });
+    console.error(
+      "[CAPI] exception:",
+      err
+    );
+
+    return NextResponse.json(
+      { error: "Erro interno CAPI" },
+      { status: 500 }
+    );
   }
 }
