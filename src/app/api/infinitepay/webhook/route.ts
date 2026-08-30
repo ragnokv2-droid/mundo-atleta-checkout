@@ -1,58 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
+import { formatMoneyLabel, sendPushNotification } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    console.log("[infinitepay/webhook]", body);
+    const body = await req.json().catch(() => ({}));
+    console.log("[infinitepay/webhook]", JSON.stringify(body));
 
-    const orderNsu = body.order_nsu || "";
-    const paidAmount = body.paid_amount ?? body.amount ?? 10990;
-    const valueReais =
-      typeof paidAmount === "number" ? paidAmount / 100 : 109.9;
+    const status = String(
+      body.status || body.payment_status || body.order_status || ""
+    ).toLowerCase();
 
-    const origin =
-      req.headers.get("origin") ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://mundo-atleta-checkout.vercel.app";
+    const paid =
+      status.includes("paid") ||
+      status.includes("approved") ||
+      status.includes("aprov") ||
+      status === "captured" ||
+      body.paid === true;
 
-    // Marca como pago na planilha (novo registro pago)
-    await fetch(`${origin}/api/leads`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nome: body.customer_name || body.name || "Cliente cartão",
-        email: body.customer_email || body.email || "",
-        telefone: body.customer_phone || body.phone || "",
-        endereco: "",
-        frete: orderNsu,
-        valor: valueReais.toFixed(2),
-        status: "pago",
-        etapa: 3,
-      }),
-    }).catch((e) => console.error("[webhook] leads error", e));
+    const nome =
+      body.customer?.name ||
+      body.customer_name ||
+      body.nome ||
+      "Cliente";
 
-    // CAPI Purchase
-    const eventId = `card_${orderNsu || Date.now()}`;
-    await fetch(`${origin}/api/meta/capi`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventName: "Purchase",
-        eventId,
-        value: valueReais,
-        currency: "BRL",
-        contentName: "Aparelho Abdominal AB Tomic",
-        contentIds: ["ab-tomic"],
-        email: body.customer_email || body.email,
-        phone: body.customer_phone || body.phone,
-        name: body.customer_name || body.name,
-      }),
-    }).catch((e) => console.error("[webhook] capi error", e));
+    const valor =
+      body.amount ||
+      body.value ||
+      body.valor ||
+      body.order_amount ||
+      "";
 
-    return NextResponse.json({ ok: true }, { status: 200 });
+    let valorLabel = valor;
+    if (typeof valor === "number" && valor > 500) {
+      valorLabel = (valor / 100).toFixed(2);
+    }
+
+    if (paid) {
+      await sendPushNotification({
+        title: "Venda Aprovada!",
+        body: `Valor: ${formatMoneyLabel(valorLabel)}`,
+        data: { type: "cartao_aprovado" },
+      });
+
+      const webhook = process.env.LEADS_WEBHOOK_URL;
+      if (webhook) {
+        await fetch(webhook, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nome: String(nome),
+            email: body.customer?.email || body.email || "",
+            telefone: body.customer?.phone || body.phone || "",
+            endereco: "",
+            frete: "",
+            valor:
+              typeof valorLabel === "number"
+                ? valorLabel.toFixed(2)
+                : String(valorLabel),
+            status: "pago",
+            etapa: 3,
+          }),
+        }).catch(() => {});
+      }
+    }
+
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[infinitepay/webhook] error", err);
-    // InfinitePay retenta se 400; em dúvida responda 200 para não loop infinito
-    return NextResponse.json({ ok: true }, { status: 200 });
+    return NextResponse.json({ ok: true });
   }
 }
