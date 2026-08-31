@@ -98,7 +98,7 @@ export async function sendPushNotification(
       to,
 
       // Som personalizado de caixa registradora
-      sound: "cash-register.wav",
+      sound: "cash_register.wav",
 
       title: payload.title,
       body: payload.body,
