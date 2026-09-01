@@ -8,8 +8,8 @@ export default function Header() {
         <Image
           src="/logo.png"
           alt="Mundo Atleta"
-          width={300}
-          height={90}
+          width={400}
+          height={140}
           className="h-9 w-auto object-contain"
           priority
         />
