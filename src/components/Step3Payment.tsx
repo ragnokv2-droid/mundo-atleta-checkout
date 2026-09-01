@@ -134,6 +134,13 @@ export default function Step3Payment({
           valor: (totalAmount / 100).toFixed(2),
           status: "aguardando_pix",
           etapa: 3,
+          source: formData.source,
+          fbclid: formData.fbclid || "",
+          utm_source: formData.utm_source || "",
+          utm_medium: formData.utm_medium || "",
+          utm_campaign: formData.utm_campaign || "",
+          utm_content: formData.utm_content || "",
+          utm_term: formData.utm_term || "",
         }),
       }).catch(() => {});
 
@@ -202,6 +209,15 @@ export default function Step3Payment({
           },
           shipping: formData.shipping,
           amount: cardTotalAmount,
+          tracking: {
+            source: formData.source,
+            fbclid: formData.fbclid || "",
+            utm_source: formData.utm_source || "",
+            utm_medium: formData.utm_medium || "",
+            utm_campaign: formData.utm_campaign || "",
+            utm_content: formData.utm_content || "",
+            utm_term: formData.utm_term || "",
+          },
         }),
       });
 
