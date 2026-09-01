@@ -14,6 +14,7 @@ import {
   AddressData,
   ShippingMethod,
   SHIPPING_OPTIONS,
+  TrackingData,
 } from "@/types/checkout";
 import { PRODUCT } from "@/lib/product";
 import { trackMetaEvent } from "@/components/MetaPixel";
@@ -21,6 +22,16 @@ import { createEventId, trackMetaCAPI } from "@/lib/meta";
 
 export default function CheckoutPage() {
   const [step, setStep] = useState<Step>(1);
+
+  const [tracking, setTracking] = useState<TrackingData>({
+    source: "DIRETO",
+    fbclid: "",
+    utm_source: "",
+    utm_medium: "",
+    utm_campaign: "",
+    utm_content: "",
+    utm_term: "",
+  });
 
   // Controla se o PIX já foi gerado.
   // Quando true, escondemos etapas e resumo.
@@ -72,6 +83,31 @@ export default function CheckoutPage() {
     });
   }, []);
 
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rawSource = String(params.get("source") || "DIRETO")
+      .trim()
+      .toUpperCase();
+
+    const source: TrackingData["source"] =
+      rawSource === "LP-GROK" ||
+      rawSource === "LP-GPT" ||
+      rawSource === "SHOPIFY"
+        ? rawSource
+        : "DIRETO";
+
+    setTracking({
+      source,
+      fbclid: params.get("fbclid") || "",
+      utm_source: params.get("utm_source") || "",
+      utm_medium: params.get("utm_medium") || "",
+      utm_campaign: params.get("utm_campaign") || "",
+      utm_content: params.get("utm_content") || "",
+      utm_term: params.get("utm_term") || "",
+    });
+  }, []);
+
   // Se sair da etapa 3, garante que a tela de PIX seja resetada.
   useEffect(() => {
     if (step !== 3) {
@@ -83,7 +119,7 @@ export default function CheckoutPage() {
     fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, ...tracking }),
     }).catch(() => {});
   }
 
@@ -181,6 +217,7 @@ export default function CheckoutPage() {
             ...customer,
             ...address,
             shipping: shipping || undefined,
+            ...tracking,
           }}
           totalAmount={totalAmount}
           onPixReady={setPixReady}
