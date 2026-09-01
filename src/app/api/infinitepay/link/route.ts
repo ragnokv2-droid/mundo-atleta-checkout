@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { customer, address, shipping, amount } = body;
+    const { customer, address, shipping, amount, tracking } = body;
 
     if (!customer?.name || !customer?.email) {
       return NextResponse.json(
@@ -55,7 +55,14 @@ export async function POST(req: NextRequest) {
       totalCents - DEFAULT_CARD_PRICE_CENTS
     );
 
-    const orderNsu = `card-${Date.now()}`;
+    const rawSource = String(tracking?.source || "DIRETO").toUpperCase();
+    const source =
+      rawSource === "LP-GROK" || rawSource === "LP-GPT" || rawSource === "SHOPIFY"
+        ? rawSource
+        : "DIRETO";
+
+    // A origem vai no order_nsu para conseguirmos recuperá-la no webhook do cartão.
+    const orderNsu = `card-${source}-${Date.now()}`;
 
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
@@ -165,6 +172,13 @@ export async function POST(req: NextRequest) {
         valor: (totalCents / 100).toFixed(2),
         status: "aguardando_cartao",
         etapa: 3,
+        source,
+        fbclid: tracking?.fbclid || "",
+        utm_source: tracking?.utm_source || "",
+        utm_medium: tracking?.utm_medium || "",
+        utm_campaign: tracking?.utm_campaign || "",
+        utm_content: tracking?.utm_content || "",
+        utm_term: tracking?.utm_term || "",
       }),
     }).catch(() => {});
 
