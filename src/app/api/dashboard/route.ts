@@ -11,6 +11,13 @@ type Lead = {
   valor?: string | number;
   status?: string;
   etapa?: string | number;
+  source?: string;
+  fbclid?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
 };
 
 function normalizar(valor: unknown) {
@@ -253,6 +260,13 @@ export async function GET(req: NextRequest) {
       status: r.status,
       etapa: r.etapa,
       frete: r.frete,
+      source: r.source || "DIRETO",
+      fbclid: r.fbclid || "",
+      utm_source: r.utm_source || "",
+      utm_medium: r.utm_medium || "",
+      utm_campaign: r.utm_campaign || "",
+      utm_content: r.utm_content || "",
+      utm_term: r.utm_term || "",
     }));
 
     return NextResponse.json({
