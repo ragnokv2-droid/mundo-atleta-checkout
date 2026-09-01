@@ -30,6 +30,17 @@ export async function POST(req: NextRequest) {
       body.order_amount ||
       "";
 
+    const orderNsu = String(
+      body.order_nsu ||
+        body.orderNsu ||
+        body.order?.order_nsu ||
+        body.order?.nsu ||
+        ""
+    );
+
+    const sourceMatch = orderNsu.match(/^card-(LP-GROK|LP-GPT|SHOPIFY|DIRETO)-/i);
+    const source = sourceMatch ? sourceMatch[1].toUpperCase() : "DIRETO";
+
     let valorLabel = valor;
     if (typeof valor === "number" && valor > 500) {
       valorLabel = (valor / 100).toFixed(2);
@@ -59,6 +70,7 @@ export async function POST(req: NextRequest) {
                 : String(valorLabel),
             status: "pago",
             etapa: 3,
+            source,
           }),
         }).catch(() => {});
       }
