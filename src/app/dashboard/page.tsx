@@ -28,6 +28,13 @@ type Lead = {
   status: string;
   etapa: string;
   frete: string;
+  source: string;
+  fbclid?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  utm_content?: string;
+  utm_term?: string;
 };
 
 type Tab = "dashboard" | "vendas" | "carrinhos" | "pix" | "config";
@@ -542,13 +549,18 @@ export default function DashboardPage() {
             {lead.telefone || "—"} · R$ {lead.valor || "0"}
             {lead.frete ? ` · ${lead.frete}` : ""}
           </p>
-          <span
-            className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusBadge(
-              status
-            )}`}
-          >
-            {lead.status || "—"}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <span
+              className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusBadge(
+                status
+              )}`}
+            >
+              {lead.status || "—"}
+            </span>
+            <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+              Origem: {lead.source || "DIRETO"}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {lead.telefone && (
