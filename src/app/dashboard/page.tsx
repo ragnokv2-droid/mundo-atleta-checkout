@@ -560,6 +560,11 @@ export default function DashboardPage() {
             <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
               Origem: {lead.source || "DIRETO"}
             </span>
+            {lead.utm_campaign && (
+              <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                Campanha: {lead.utm_campaign}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
