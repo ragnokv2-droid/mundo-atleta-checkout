@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, head, del, list } from "@vercel/blob";
 
 export type CheckoutConfig = {
   purchaseOnPixGenerate: boolean;
@@ -11,197 +10,175 @@ const DEFAULT_CONFIG: CheckoutConfig = {
   cardEnabled: false,
 };
 
-const CONFIG_PATH = "checkout-config.json";
-const LEGACY_PREFIX = "checkout-config";
-
-/**
- * Salva sempre no MESMO arquivo.
- *
- * Não usamos mais sufixo aleatório.
- * Antes de gravar, apagamos o arquivo anterior.
- * del() é gratuito no Vercel Blob.
- */
-async function writeConfig(config: CheckoutConfig) {
-  try {
-    await del(CONFIG_PATH).catch(() => undefined);
-
-    const blob = await put(
-      CONFIG_PATH,
-      JSON.stringify(config, null, 2),
-      {
-        access: "public",
-        contentType: "application/json",
-        addRandomSuffix: false,
-      }
-    );
-
-    console.log("[config] config salva:", blob.url);
-
-    return blob;
-  } catch (err) {
-    console.error("[config] writeConfig error:", err);
-    throw err;
-  }
+function getWebhook() {
+  return process.env.LEADS_WEBHOOK_URL;
 }
 
-/**
- * Migração automática da estrutura antiga.
- *
- * Essa função usa list() UMA VEZ apenas caso ainda
- * não exista checkout-config.json.
- *
- * Depois que migrar, nunca mais será necessária.
- */
-async function migrateLegacyConfig(): Promise<CheckoutConfig | null> {
-  try {
-    console.log("[config] procurando configuração antiga para migrar...");
-
-    const { blobs } = await list({
-      prefix: LEGACY_PREFIX,
-      limit: 50,
-    });
-
-    if (!blobs.length) {
-      console.log("[config] nenhuma configuração antiga encontrada");
-      return null;
-    }
-
-    const legacyBlobs = blobs
-      .filter((blob) => blob.pathname !== CONFIG_PATH)
-      .sort(
-        (a, b) =>
-          new Date(b.uploadedAt).getTime() -
-          new Date(a.uploadedAt).getTime()
-      );
-
-    const latest = legacyBlobs[0];
-
-    if (!latest?.url) {
-      return null;
-    }
-
-    const response = await fetch(latest.url, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const json = await response.json();
-
-    const config: CheckoutConfig = {
-      purchaseOnPixGenerate: Boolean(
-        json.purchaseOnPixGenerate
-      ),
-      cardEnabled: Boolean(json.cardEnabled),
-    };
-
-    // Cria o novo arquivo fixo
-    await writeConfig(config);
-
-    // Remove os arquivos antigos
-    await Promise.all(
-      legacyBlobs.map((blob) =>
-        del(blob.url).catch((err) => {
-          console.warn(
-            "[config] não foi possível apagar blob antigo:",
-            blob.pathname,
-            err
-          );
-        })
-      )
-    );
-
-    console.log("[config] migração concluída");
-
-    return config;
-  } catch (err) {
-    console.error("[config] migrateLegacyConfig error:", err);
-    return null;
-  }
-}
 
 /**
- * Leitura normal.
+ * Lê configuração direto do Apps Script.
  *
- * head() = Simple Operation.
- * NÃO usa list() nas consultas normais.
+ * Não usa Vercel Blob.
  */
 async function readConfig(): Promise<CheckoutConfig> {
   try {
-    let blob;
+    const webhook = getWebhook();
 
-    try {
-      blob = await head(CONFIG_PATH);
-    } catch {
-      blob = null;
-    }
-
-    /**
-     * Se ainda não existe o arquivo novo,
-     * tenta migrar automaticamente o formato antigo.
-     */
-    if (!blob?.url) {
-      const migrated = await migrateLegacyConfig();
-
-      if (migrated) {
-        return migrated;
-      }
+    if (!webhook) {
+      console.error(
+        "[config] LEADS_WEBHOOK_URL não configurada"
+      );
 
       return DEFAULT_CONFIG;
     }
 
-    const res = await fetch(blob.url, {
+    const separator = webhook.includes("?") ? "&" : "?";
+
+    const url =
+      `${webhook}${separator}action=get_config`;
+
+    const res = await fetch(url, {
       cache: "no-store",
     });
 
     if (!res.ok) {
+      console.error(
+        "[config] Apps Script respondeu:",
+        res.status
+      );
+
       return DEFAULT_CONFIG;
     }
 
     const json = await res.json();
 
+    if (!json?.ok || !json?.config) {
+      console.error(
+        "[config] resposta inválida:",
+        json
+      );
+
+      return DEFAULT_CONFIG;
+    }
+
     return {
-      purchaseOnPixGenerate: Boolean(
-        json.purchaseOnPixGenerate
-      ),
-      cardEnabled: Boolean(json.cardEnabled),
+      purchaseOnPixGenerate:
+        json.config.purchaseOnPixGenerate === true,
+
+      cardEnabled:
+        json.config.cardEnabled === true,
     };
-  } catch (err) {
-    console.error("[config] readConfig error:", err);
+
+  } catch (error) {
+
+    console.error(
+      "[config] readConfig:",
+      error
+    );
+
     return DEFAULT_CONFIG;
   }
 }
 
-/**
- * Público
- *
- * O checkout consulta essa rota.
- */
-export async function GET() {
-  const config = await readConfig();
 
-  return NextResponse.json({
-    ok: true,
-    config,
+/**
+ * Salva configuração no Apps Script.
+ */
+async function writeConfig(
+  config: CheckoutConfig
+): Promise<CheckoutConfig> {
+
+  const webhook = getWebhook();
+
+  if (!webhook) {
+    throw new Error(
+      "LEADS_WEBHOOK_URL não configurada"
+    );
+  }
+
+  const res = await fetch(webhook, {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+
+    body: JSON.stringify({
+      action: "set_config",
+
+      purchaseOnPixGenerate:
+        config.purchaseOnPixGenerate,
+
+      cardEnabled:
+        config.cardEnabled,
+    }),
+
+    cache: "no-store",
   });
+
+  const json = await res.json();
+
+  if (!res.ok || !json?.ok) {
+    console.error(
+      "[config] erro Apps Script:",
+      json
+    );
+
+    throw new Error(
+      json?.error ||
+      "Erro ao salvar configuração"
+    );
+  }
+
+  return {
+    purchaseOnPixGenerate:
+      json.config?.purchaseOnPixGenerate === true,
+
+    cardEnabled:
+      json.config?.cardEnabled === true,
+  };
 }
 
+
 /**
- * Salvar configuração.
- *
- * Exige senha do dashboard.
+ * Público.
+ * Checkout consulta essa rota.
  */
-export async function POST(req: NextRequest) {
+export async function GET() {
+
+  const config = await readConfig();
+
+  return NextResponse.json(
+    {
+      ok: true,
+      config,
+    },
+    {
+      headers: {
+        "Cache-Control":
+          "no-store, no-cache, must-revalidate",
+      },
+    }
+  );
+}
+
+
+/**
+ * Dashboard salva as configurações.
+ */
+export async function POST(
+  req: NextRequest
+) {
   try {
+
     const body = await req.json();
 
-    const password = body.password;
     const expected =
-      process.env.DASHBOARD_PASSWORD || "mundoatleta";
+      process.env.DASHBOARD_PASSWORD ||
+      "mundoatleta";
 
-    if (password !== expected) {
+    if (body.password !== expected) {
+
       return NextResponse.json(
         {
           error: "Não autorizado",
@@ -215,34 +192,41 @@ export async function POST(req: NextRequest) {
     const current = await readConfig();
 
     const next: CheckoutConfig = {
+
       purchaseOnPixGenerate:
-        typeof body.purchaseOnPixGenerate === "boolean"
+        typeof body.purchaseOnPixGenerate ===
+        "boolean"
           ? body.purchaseOnPixGenerate
           : current.purchaseOnPixGenerate,
 
       cardEnabled:
-        typeof body.cardEnabled === "boolean"
+        typeof body.cardEnabled ===
+        "boolean"
           ? body.cardEnabled
           : current.cardEnabled,
     };
 
-    await writeConfig(next);
+    const saved =
+      await writeConfig(next);
 
     return NextResponse.json({
       ok: true,
-      config: next,
+      config: saved,
     });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : "Erro desconhecido ao salvar config";
 
-    console.error("[config] POST error:", err);
+  } catch (error) {
+
+    console.error(
+      "[config] POST:",
+      error
+    );
 
     return NextResponse.json(
       {
-        error: message,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao salvar configuração",
       },
       {
         status: 500,
