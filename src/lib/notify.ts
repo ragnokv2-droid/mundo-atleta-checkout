@@ -1,119 +1,66 @@
-import { list, put, del, head } from "@vercel/blob";
-
-const TOKEN_PATH = "push-tokens.json";
-const LEGACY_TOKEN_PREFIX = "push-tokens";
-
 export type PushPayload = {
   title: string;
   body: string;
   data?: Record<string, string>;
 };
 
-/**
- * Grava os tokens em um único arquivo fixo.
- */
-async function writeTokens(tokens: string[]) {
-  try {
-    await del(TOKEN_PATH).catch(() => undefined);
-
-    const blob = await put(
-      TOKEN_PATH,
-      JSON.stringify(
-        {
-          tokens,
-          updatedAt: new Date().toISOString(),
-        },
-        null,
-        2
-      ),
-      {
-        access: "public",
-        contentType: "application/json",
-        addRandomSuffix: false,
-      }
-    );
-
-    console.log("[notify] tokens salvos:", blob.url);
-
-    return blob;
-  } catch (err) {
-    console.error("[notify] writeTokens error:", err);
-    throw err;
-  }
+function getWebhook() {
+  return process.env.LEADS_WEBHOOK_URL;
 }
 
 /**
- * Migra automaticamente o arquivo antigo.
- *
- * list() só será usado enquanto o novo
- * push-tokens.json ainda não existir.
+ * Lê os tokens de push pelo Google Apps Script.
+ * Não usa Vercel Blob.
  */
-async function migrateLegacyTokens(): Promise<string[]> {
+async function readTokens(): Promise<string[]> {
   try {
-    console.log("[notify] procurando tokens antigos...");
+    const webhook = getWebhook();
 
-    const { blobs } = await list({
-      prefix: LEGACY_TOKEN_PREFIX,
-      limit: 50,
-    });
-
-    if (!blobs.length) {
-      return [];
-    }
-
-    const legacyBlobs = blobs
-      .filter((blob) => blob.pathname !== TOKEN_PATH)
-      .sort(
-        (a, b) =>
-          new Date(b.uploadedAt).getTime() -
-          new Date(a.uploadedAt).getTime()
+    if (!webhook) {
+      console.error(
+        "[notify] LEADS_WEBHOOK_URL não configurada"
       );
 
-    const latest = legacyBlobs[0];
-
-    if (!latest?.url) {
       return [];
     }
 
-    const response = await fetch(latest.url, {
+    const separator = webhook.includes("?") ? "&" : "?";
+
+    const url =
+      `${webhook}${separator}action=get_push_tokens`;
+
+    const res = await fetch(url, {
       cache: "no-store",
     });
 
-    if (!response.ok) {
+    if (!res.ok) {
+      console.error(
+        "[notify] erro ao consultar tokens:",
+        res.status
+      );
+
       return [];
     }
 
-    const json = await response.json();
+    const json = await res.json();
 
-    const tokens = Array.isArray(json.tokens)
-      ? json.tokens.filter(
-          (token: unknown) =>
-            typeof token === "string" &&
-            token.length > 10
-        )
-      : [];
+    if (!json?.ok || !Array.isArray(json?.tokens)) {
+      console.error(
+        "[notify] resposta inválida dos tokens:",
+        json
+      );
 
-    if (tokens.length) {
-      await writeTokens(tokens);
+      return [];
     }
 
-    // Remove blobs antigos
-    await Promise.all(
-      legacyBlobs.map((blob) =>
-        del(blob.url).catch(() => undefined)
-      )
+    return json.tokens.filter(
+      (token: unknown) =>
+        typeof token === "string" &&
+        token.trim().length > 10
     );
-
-    console.log(
-      "[notify] migração concluída:",
-      tokens.length,
-      "tokens"
-    );
-
-    return tokens;
   } catch (err) {
     console.error(
-      "[notify] migrateLegacyTokens error:",
+      "[notify] readTokens error:",
       err
     );
 
@@ -122,58 +69,57 @@ async function migrateLegacyTokens(): Promise<string[]> {
 }
 
 /**
- * Lê os tokens.
- *
- * Agora usa head() ao invés de list().
+ * Salva tokens no Google Apps Script.
  */
-async function readTokens(): Promise<string[]> {
-  try {
-    let blob;
+async function writeTokens(tokens: string[]) {
+  const webhook = getWebhook();
 
-    try {
-      blob = await head(TOKEN_PATH);
-    } catch {
-      blob = null;
-    }
-
-    /**
-     * Primeira execução após a atualização:
-     * migra automaticamente o arquivo antigo.
-     */
-    if (!blob?.url) {
-      return await migrateLegacyTokens();
-    }
-
-    const res = await fetch(blob.url, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return [];
-    }
-
-    const json = await res.json();
-
-    const tokens = Array.isArray(json.tokens)
-      ? json.tokens
-      : [];
-
-    return tokens.filter(
-      (token: unknown) =>
-        typeof token === "string" &&
-        token.length > 10
+  if (!webhook) {
+    throw new Error(
+      "LEADS_WEBHOOK_URL não configurada"
     );
-  } catch (err) {
-    console.error("[notify] readTokens error:", err);
-
-    return [];
   }
+
+  const res = await fetch(webhook, {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+
+    body: JSON.stringify({
+      action: "set_push_tokens",
+      tokens,
+    }),
+
+    cache: "no-store",
+  });
+
+  const json = await res.json();
+
+  if (!res.ok || !json?.ok) {
+    console.error(
+      "[notify] erro ao salvar tokens:",
+      json
+    );
+
+    throw new Error(
+      json?.error ||
+        "Erro ao salvar push token"
+    );
+  }
+
+  return Array.isArray(json.tokens)
+    ? json.tokens
+    : tokens;
 }
 
 /**
- * Salva token do aplicativo.
+ * Registra token enviado pelo APK.
  */
-export async function savePushToken(token: string) {
+export async function savePushToken(
+  token: string
+) {
   const clean = String(token || "").trim();
 
   if (!clean) {
@@ -183,8 +129,8 @@ export async function savePushToken(token: string) {
   const prev = await readTokens();
 
   /**
+   * Evita duplicados.
    * Mantém até 3 dispositivos.
-   * Também evita token duplicado.
    */
   const tokens = [
     clean,
@@ -193,11 +139,16 @@ export async function savePushToken(token: string) {
 
   await writeTokens(tokens);
 
+  console.log(
+    "[notify] token registrado. Total:",
+    tokens.length
+  );
+
   return tokens;
 }
 
 /**
- * Envia notificação para os dispositivos.
+ * Envia notificação via Expo Push.
  */
 export async function sendPushNotification(
   payload: PushPayload
@@ -218,16 +169,15 @@ export async function sendPushNotification(
     const messages = tokens.map((to) => ({
       to,
 
-      // Som personalizado de caixa registradora
       sound: "cash_register.wav",
 
       title: payload.title,
       body: payload.body,
+
       data: payload.data || {},
 
       priority: "high" as const,
 
-      // Canal Android
       channelId: "orders-v2",
     }));
 
@@ -235,28 +185,43 @@ export async function sendPushNotification(
       "https://exp.host/--/api/v2/push/send",
       {
         method: "POST",
+
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
+
         body: JSON.stringify(messages),
       }
     );
 
-    const json = await res.json().catch(() => null);
+    const json = await res
+      .json()
+      .catch(() => null);
 
     console.log(
-      "[notify] expo response",
+      "[notify] Expo response:",
       res.status,
       json
     );
+
+    if (!res.ok) {
+      return {
+        sent: 0,
+        error: true,
+        json,
+      };
+    }
 
     return {
       sent: tokens.length,
       json,
     };
   } catch (err) {
-    console.error("[notify] send error", err);
+    console.error(
+      "[notify] send error:",
+      err
+    );
 
     return {
       sent: 0,
@@ -266,10 +231,11 @@ export async function sendPushNotification(
 }
 
 /**
- * Formatação do valor exibido
- * na notificação.
+ * Formata valor para notificação.
  */
-export function formatMoneyLabel(valor: unknown) {
+export function formatMoneyLabel(
+  valor: unknown
+) {
   const raw = String(valor ?? "").trim();
 
   if (!raw) {
