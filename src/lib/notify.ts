@@ -1,6 +1,7 @@
-import { list, put, del } from "@vercel/blob";
+import { list, put, del, head } from "@vercel/blob";
 
-const TOKEN_PREFIX = "push-tokens";
+const TOKEN_PATH = "push-tokens.json";
+const LEGACY_TOKEN_PREFIX = "push-tokens";
 
 export type PushPayload = {
   title: string;
@@ -8,36 +9,170 @@ export type PushPayload = {
   data?: Record<string, string>;
 };
 
-async function readTokens(): Promise<string[]> {
+/**
+ * Grava os tokens em um único arquivo fixo.
+ */
+async function writeTokens(tokens: string[]) {
   try {
-    const { blobs } = await list({ prefix: TOKEN_PREFIX, limit: 20 });
-    if (!blobs.length) return [];
+    await del(TOKEN_PATH).catch(() => undefined);
 
-    const sorted = [...blobs].sort(
-      (a, b) =>
-        new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
+    const blob = await put(
+      TOKEN_PATH,
+      JSON.stringify(
+        {
+          tokens,
+          updatedAt: new Date().toISOString(),
+        },
+        null,
+        2
+      ),
+      {
+        access: "public",
+        contentType: "application/json",
+        addRandomSuffix: false,
+      }
     );
 
-    const file = sorted[0];
-    if (!file?.url) return [];
+    console.log("[notify] tokens salvos:", blob.url);
 
-    const res = await fetch(file.url, { cache: "no-store" });
-
-    if (!res.ok) return [];
-
-    const json = await res.json();
-
-    const tokens = Array.isArray(json.tokens) ? json.tokens : [];
-
-    return tokens.filter(
-      (t: unknown) => typeof t === "string" && t.length > 10
-    );
+    return blob;
   } catch (err) {
-    console.error("[notify] readTokens", err);
+    console.error("[notify] writeTokens error:", err);
+    throw err;
+  }
+}
+
+/**
+ * Migra automaticamente o arquivo antigo.
+ *
+ * list() só será usado enquanto o novo
+ * push-tokens.json ainda não existir.
+ */
+async function migrateLegacyTokens(): Promise<string[]> {
+  try {
+    console.log("[notify] procurando tokens antigos...");
+
+    const { blobs } = await list({
+      prefix: LEGACY_TOKEN_PREFIX,
+      limit: 50,
+    });
+
+    if (!blobs.length) {
+      return [];
+    }
+
+    const legacyBlobs = blobs
+      .filter((blob) => blob.pathname !== TOKEN_PATH)
+      .sort(
+        (a, b) =>
+          new Date(b.uploadedAt).getTime() -
+          new Date(a.uploadedAt).getTime()
+      );
+
+    const latest = legacyBlobs[0];
+
+    if (!latest?.url) {
+      return [];
+    }
+
+    const response = await fetch(latest.url, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const json = await response.json();
+
+    const tokens = Array.isArray(json.tokens)
+      ? json.tokens.filter(
+          (token: unknown) =>
+            typeof token === "string" &&
+            token.length > 10
+        )
+      : [];
+
+    if (tokens.length) {
+      await writeTokens(tokens);
+    }
+
+    // Remove blobs antigos
+    await Promise.all(
+      legacyBlobs.map((blob) =>
+        del(blob.url).catch(() => undefined)
+      )
+    );
+
+    console.log(
+      "[notify] migração concluída:",
+      tokens.length,
+      "tokens"
+    );
+
+    return tokens;
+  } catch (err) {
+    console.error(
+      "[notify] migrateLegacyTokens error:",
+      err
+    );
+
     return [];
   }
 }
 
+/**
+ * Lê os tokens.
+ *
+ * Agora usa head() ao invés de list().
+ */
+async function readTokens(): Promise<string[]> {
+  try {
+    let blob;
+
+    try {
+      blob = await head(TOKEN_PATH);
+    } catch {
+      blob = null;
+    }
+
+    /**
+     * Primeira execução após a atualização:
+     * migra automaticamente o arquivo antigo.
+     */
+    if (!blob?.url) {
+      return await migrateLegacyTokens();
+    }
+
+    const res = await fetch(blob.url, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const json = await res.json();
+
+    const tokens = Array.isArray(json.tokens)
+      ? json.tokens
+      : [];
+
+    return tokens.filter(
+      (token: unknown) =>
+        typeof token === "string" &&
+        token.length > 10
+    );
+  } catch (err) {
+    console.error("[notify] readTokens error:", err);
+
+    return [];
+  }
+}
+
+/**
+ * Salva token do aplicativo.
+ */
 export async function savePushToken(token: string) {
   const clean = String(token || "").trim();
 
@@ -47,42 +182,23 @@ export async function savePushToken(token: string) {
 
   const prev = await readTokens();
 
+  /**
+   * Mantém até 3 dispositivos.
+   * Também evita token duplicado.
+   */
   const tokens = [
     clean,
     ...prev.filter((t) => t !== clean),
   ].slice(0, 3);
 
-  try {
-    const { blobs } = await list({
-      prefix: TOKEN_PREFIX,
-      limit: 50,
-    });
-
-    await Promise.all(
-      blobs.map((b) =>
-        del(b.url).catch(() => undefined)
-      )
-    );
-  } catch {
-    /* ignore */
-  }
-
-  await put(
-    `${TOKEN_PREFIX}.json`,
-    JSON.stringify({
-      tokens,
-      updatedAt: new Date().toISOString(),
-    }),
-    {
-      access: "public",
-      contentType: "application/json",
-      addRandomSuffix: true,
-    }
-  );
+  await writeTokens(tokens);
 
   return tokens;
 }
 
+/**
+ * Envia notificação para os dispositivos.
+ */
 export async function sendPushNotification(
   payload: PushPayload
 ) {
@@ -90,8 +206,13 @@ export async function sendPushNotification(
     const tokens = await readTokens();
 
     if (!tokens.length) {
-      console.log("[notify] nenhum token registrado");
-      return { sent: 0 };
+      console.log(
+        "[notify] nenhum token registrado"
+      );
+
+      return {
+        sent: 0,
+      };
     }
 
     const messages = tokens.map((to) => ({
@@ -106,7 +227,7 @@ export async function sendPushNotification(
 
       priority: "high" as const,
 
-      // Canal Android com o novo som
+      // Canal Android
       channelId: "orders-v2",
     }));
 
@@ -144,10 +265,16 @@ export async function sendPushNotification(
   }
 }
 
+/**
+ * Formatação do valor exibido
+ * na notificação.
+ */
 export function formatMoneyLabel(valor: unknown) {
   const raw = String(valor ?? "").trim();
 
-  if (!raw) return "R$ —";
+  if (!raw) {
+    return "R$ —";
+  }
 
   if (raw.includes("R$")) {
     return raw;
