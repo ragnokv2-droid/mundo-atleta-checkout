@@ -18,6 +18,7 @@ type Lead = {
   utm_campaign?: string;
   utm_content?: string;
   utm_term?: string;
+  pix_copia_cola?: string;
 };
 
 function normalizar(valor: unknown) {
@@ -267,6 +268,7 @@ export async function GET(req: NextRequest) {
       utm_campaign: r.utm_campaign || "",
       utm_content: r.utm_content || "",
       utm_term: r.utm_term || "",
+      pix_copia_cola: r.pix_copia_cola || "",
     }));
 
     return NextResponse.json({
