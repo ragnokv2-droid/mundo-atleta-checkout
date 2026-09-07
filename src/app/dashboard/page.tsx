@@ -200,8 +200,8 @@ function waLink(
   let mensagem = "";
 
   if (statusNormalizado === "aguardando_pix") {
-    mensagem = `Olá, ${nomeCliente}! ${EMOJI.ola}
-Seu pedido foi recebido com sucesso na *Mundo Atleta*! ${EMOJI.coracao}
+    mensagem = `*Olá, ${nomeCliente}*! ${EMOJI.ola}
+Seu pedido foi recebido com sucesso na Loja Mundo Atleta! ${EMOJI.coracao}
 
 ${EMOJI.caixa} *RESUMO DO PEDIDO:*
 *Produto:* Aparelho Abdominal AB Tomic
