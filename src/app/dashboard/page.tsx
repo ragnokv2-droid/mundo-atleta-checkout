@@ -213,8 +213,6 @@ ${EMOJI.caminhao} *ENDEREÇO DE ENTREGA:*
 ${enderecoPedido}
 
 ${EMOJI.pagamento} *PAGAMENTO:*
-Assim que o pagamento for identificado, seu pedido será confirmado e seguirá para preparação e envio. ${EMOJI.caixa}
-
 Se ainda não realizou o pagamento, utilize o PIX abaixo:
 
 *PIX Copia e Cola:*
