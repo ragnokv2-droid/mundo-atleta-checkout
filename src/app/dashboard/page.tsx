@@ -166,53 +166,49 @@ function waLink(
   const full = n.startsWith("55") ? n : `55${n}`;
   const nomeCliente = String(nome || "").trim().split(" ")[0] || "cliente";
 
-  const valorComPonto = Number(
-    String(valor || "0")
-      .replace("R$", "")
-      .replace(/\s/g, "")
-      .replace(",", ".")
-  );
+  const valorRaw = String(valor || "0")
+    .replace(/R\$/gi, "")
+    .replace(/\s/g, "")
+    .trim();
 
-  const valorPedido = (Number.isFinite(valorComPonto) ? valorComPonto : 0).toLocaleString(
-    "pt-BR",
-    {
-      style: "currency",
-      currency: "BRL",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }
-  );
+  let valorNumero = 0;
+
+  if (valorRaw.includes(",")) {
+    valorNumero = Number(valorRaw.replace(/\./g, "").replace(",", "."));
+  } else {
+    valorNumero = Number(valorRaw);
+  }
+
+  const valorPedido = Number.isFinite(valorNumero)
+    ? valorNumero.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "R$ 0,00";
 
   const statusNormalizado = String(status || "").toLowerCase();
-  const enderecoPedido = String(endereco || "").trim() || "Endereço informado no pedido";
+  const enderecoPedido =
+    String(endereco || "").trim() || "Endereço informado no pedido";
   const codigoPix = String(pixCopiaCola || "").trim();
-
-  // Unicode escapes: evita emojis corrompidos no arquivo/build antes do wa.me.
-  const EMOJI = {
-    ola: "\u{1F44B}",
-    coracao: "\u{1F49A}",
-    caixa: "\u{1F4E6}",
-    relogio: "\u{23F3}",
-    caminhao: "\u{1F69A}",
-    pagamento: "\u{1F4B3}",
-  };
 
   let mensagem = "";
 
   if (statusNormalizado === "aguardando_pix") {
-    mensagem = `*Olá, ${nomeCliente}*! ${EMOJI.ola}
-Seu pedido foi recebido com sucesso na Loja Mundo Atleta! ${EMOJI.coracao}
+    mensagem = `*Olá, ${nomeCliente}*!
+Seu pedido foi recebido com sucesso na Loja Mundo Atleta!
 
-${EMOJI.caixa} *RESUMO DO PEDIDO:*
+*RESUMO DO PEDIDO:*
 *Produto:* Aparelho Abdominal AB Tomic
 *Valor total:* *${valorPedido}*
 *Forma de pagamento:* PIX
-*Status:* ${EMOJI.relogio} Aguardando pagamento
+*Status:* Aguardando pagamento
 
-${EMOJI.caminhao} *ENDEREÇO DE ENTREGA:*
+*ENDEREÇO DE ENTREGA:*
 ${enderecoPedido}
 
-${EMOJI.pagamento} *PAGAMENTO:*
+*PAGAMENTO:*
 Se ainda não realizou o pagamento, utilize o PIX abaixo:
 
 *PIX Copia e Cola:*
