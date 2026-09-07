@@ -141,6 +141,7 @@ export default function Step3Payment({
           utm_campaign: formData.utm_campaign || "",
           utm_content: formData.utm_content || "",
           utm_term: formData.utm_term || "",
+          pix_copia_cola: json.data.brCode || "",
         }),
       }).catch(() => {});
 
