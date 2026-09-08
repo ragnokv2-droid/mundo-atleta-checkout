@@ -199,19 +199,19 @@ function waLink(
     mensagem = `*Olá, ${nomeCliente}*!
 Seu pedido foi recebido com sucesso na Loja Mundo Atleta!
 
-*RESUMO DO PEDIDO:*
-*Produto:* Aparelho Abdominal AB Tomic
-*Valor total:* *${valorPedido}*
-*Forma de pagamento:* PIX
-*Status:* Aguardando pagamento
+Detalhes do pedido:
+Produto: *Aparelho Abdominal AB Tomic*
+Valor total: *${valorPedido}*
+Forma de pagamento: *PIX*
+Status: *Aguardando pagamento*
 
-*ENDEREÇO DE ENTREGA:*
+Endereço de entrega:
 ${enderecoPedido}
 
-*PAGAMENTO:*
-Se ainda não realizou o pagamento, utilize o PIX abaixo:
+Pagamento:
+*Se ainda não realizou o pagamento, utilize o PIX abaixo*:
 
-*PIX Copia e Cola:*
+PIX Copia e Cola:
 ${codigoPix || "Consulte o código PIX gerado no checkout."}`;
   } else if (statusNormalizado.includes("abandonado")) {
     mensagem = `Olá, *${nomeCliente}*!
@@ -220,7 +220,7 @@ Percebemos que você iniciou a compra do *Aparelho Abdominal AB TOMIC*, mas o pe
 
 *Seu carrinho continua reservado por tempo limitado*, então você pode finalizar a compra em poucos segundos pelo link abaixo:
 
-https://mundo-atleta-checkout.vercel.app/
+https:/pagamento.mundoatleta.shop
 
 Se precisar de qualquer ajuda, é só responder esta mensagem. Será um prazer atender você!`;
   } else {
