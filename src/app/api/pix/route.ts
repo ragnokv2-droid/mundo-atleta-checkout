@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const amountCents = Number(body.amount) || 10440; // R$ 104,40
+    const amountCents = Number(body.amount) || 8990; // R$ 8990
     const amountReais = amountCents / 100;
 
     // Sua chave PIX (CNPJ)
