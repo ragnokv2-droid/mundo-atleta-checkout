@@ -10,8 +10,8 @@ export async function POST(req: NextRequest) {
 
     // Sua chave PIX (CNPJ)
     const brCode = generatePixBrCode({
-      key: "11638721998",
-      name: "LOJA MUNDO ATLETA", // ajuste se o nome no banco for outro
+      key: "66372751000147",
+      name: "LOJA AB FIT", // ajuste se o nome no banco for outro
       city: "SAO PAULO", // ajuste para a cidade da sua empresa
       amount: amountReais,
       txid: `PED${Date.now().toString().slice(-8)}`,
