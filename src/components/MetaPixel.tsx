@@ -3,8 +3,8 @@
 import Script from "next/script";
 
 const PIXEL_IDS = [
-  "1387316733571547",  // Pixel atual
-  "28162540780065698", // Novo Pixel
+  "",  // Pixel atual
+  "", // Novo Pixel
     "1049853073957255", // Antigo Pixel
 ];
 
